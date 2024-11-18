@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  role          String    @default("USER")
+  employeeId    Int?      @map("employee_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLogin     DateTime? @map("last_login")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  emailVerified DateTime? @map("email_verified")
+
+  @@map("users")
+}
+
+model Employee {
+  id         Int      @id @default(autoincrement()) @map("employee_id")
+  name       String   @map("employee_name")
+  managerId  Int?     @map("manager_id")
+  department String?
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  manager            Employee?             @relation("EmployeeToManager", fields: [managerId], references: [id])
+  employees          Employee[]            @relation("EmployeeToManager")
+  performanceMetrics PerformanceMetric[]
+  feedbackReceived   PerformanceFeedback[] @relation("EmployeeFeedback")
+  feedbackGiven      PerformanceFeedback[] @relation("ProviderFeedback")
+
+  @@map("employee_manager_hierarchy")
+}
+
+model PerformanceMetric {
+  id          Int      @id @default(autoincrement()) @map("metric_id")
+  employeeId  Int      @map("employee_id")
+  category    String
+  score       Decimal  @db.Decimal(5, 2)
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("performance_metrics")
+}
+
+model PerformanceFeedback {
+  id           Int      @id @default(autoincrement()) @map("feedback_id")
+  employeeId   Int      @map("employee_id")
+  providerId   Int      @map("provider_id")
+  category     String
+  feedbackType String   @map("feedback_type")
+  content      String
+  feedbackDate DateTime @map("feedback_date")
+  impactRating Decimal? @map("impact_rating") @db.Decimal(5, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation("EmployeeFeedback", fields: [employeeId], references: [id])
+  provider Employee @relation("ProviderFeedback", fields: [providerId], references: [id])
+
+  @@map("performance_feedback")
+}

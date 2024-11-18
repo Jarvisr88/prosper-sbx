@@ -1,0 +1,4 @@
+db_URL: postgresql://prosper-dev_owner:huZUEqyn68Ne@ep-divine-cherry-a56oz5e5.us-east-2.aws.neon.tech/propser-sbx?sslmode=require
+
+Client ID: 135897947917-v06n3ocp4o6c931j1h947cg03mes3rv9.apps.googleusercontent.com
+Client Secret: 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
