@@ -20,18 +20,7 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@/client/*": ["client/*"],
-      "@/server/*": ["server/*"],
-      "@/shared/*": ["shared/*"],
-      "@/components/*": ["client/components/*"],
-      "@/hooks/*": ["client/hooks/*"],
-      "@/lib/*": ["client/lib/*"],
-      "@/styles/*": ["client/styles/*"],
-      "@/api/*": ["server/api/*"],
-      "@/db/*": ["server/db/*"],
-      "@/types/*": ["shared/types/*"],
-      "@/utils/*": ["shared/utils/*"]
+      "@/*": ["./*"]
     },
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,

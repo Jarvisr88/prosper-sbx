@@ -7,17 +7,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model User {
   id            String    @id @default(cuid())
-  email         String?   @unique
   name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
   role          String    @default("USER")
-  employeeId    Int?      @map("employee_id")
-  isActive      Boolean   @default(true) @map("is_active")
-  lastLogin     DateTime? @map("last_login")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  emailVerified DateTime? @map("email_verified")
+  employeeId    Int?      @unique
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
 
   @@map("users")
 }
@@ -36,6 +69,8 @@ model Employee {
   performanceMetrics PerformanceMetric[]
   feedbackReceived   PerformanceFeedback[] @relation("EmployeeFeedback")
   feedbackGiven      PerformanceFeedback[] @relation("ProviderFeedback")
+
+  user User?
 
   @@map("employee_manager_hierarchy")
 }
@@ -70,4 +105,12 @@ model PerformanceFeedback {
   provider Employee @relation("ProviderFeedback", fields: [providerId], references: [id])
 
   @@map("performance_feedback")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }

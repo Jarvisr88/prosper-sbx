@@ -20,6 +20,7 @@ export class UserController {
     createdAt: true,
     updatedAt: true,
     emailVerified: true,
+    image: true,
   } as const;
 
   async getUsers(
