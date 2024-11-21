@@ -1,12 +1,12 @@
 'use client'
 
 import React from 'react'
-import { Permission } from '@/types/auth/permissions'
 import { usePermissions } from '@/hooks/usePermissions'
+import { Permission } from '@/types/auth/permissions'
 
 interface ProtectedComponentProps {
   children: React.ReactNode
-  permissions: Permission | Permission[]
+  permissions: Permission[]
   requireAll?: boolean
   fallback?: React.ReactNode
 }
@@ -17,13 +17,11 @@ export function ProtectedComponent({
   requireAll = false,
   fallback = null
 }: ProtectedComponentProps) {
-  const { hasPermission, hasAllPermissions, hasAnyPermission } = usePermissions()
+  const { hasAllPermissions, hasAnyPermission } = usePermissions()
 
-  const hasAccess = Array.isArray(permissions)
-    ? requireAll
-      ? hasAllPermissions(permissions)
-      : hasAnyPermission(permissions)
-    : hasPermission(permissions)
+  const hasAccess = requireAll
+    ? hasAllPermissions(permissions)
+    : hasAnyPermission(permissions)
 
   if (!hasAccess) {
     return fallback

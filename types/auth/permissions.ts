@@ -1,24 +1,14 @@
 export enum Permission {
-  // User Management
-  CREATE_USER = 'create:user',
+  MANAGE_SETTINGS = 'manage:settings',
+  MANAGE_USERS = 'manage:users',
+  VIEW_AUDIT_LOGS = 'view:audit_logs',
+  MANAGE_ROLES = 'manage:roles',
   READ_USER = 'read:user',
   UPDATE_USER = 'update:user',
-  DELETE_USER = 'delete:user',
-  
-  // Resource Management
-  MANAGE_RESOURCES = 'manage:resources',
   VIEW_RESOURCES = 'view:resources',
-  
-  // Admin Actions
-  MANAGE_ROLES = 'manage:roles',
-  VIEW_AUDIT_LOGS = 'view:audit_logs',
-  MANAGE_SETTINGS = 'manage:settings',
-  
-  // Reports
   VIEW_REPORTS = 'view:reports',
   CREATE_REPORTS = 'create:reports',
-  EXPORT_DATA = 'export:data',
-  MANAGE_USERS = "MANAGE_USERS"
+  EXPORT_DATA = 'export:data'
 }
 
 export interface RolePermissions {

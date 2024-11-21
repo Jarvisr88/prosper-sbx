@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
-import { ProtectedComponent } from '@/components/auth/ProtectedComponent'
+import { ProtectedComponent } from '@/client/components/auth/ProtectedComponent'
 import { Permission } from '@/types/auth/permissions'
 import { usePermissions } from '@/hooks/usePermissions'
 

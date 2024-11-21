@@ -1,41 +1,13 @@
 import '@testing-library/jest-dom'
-import { TextEncoder, TextDecoder } from 'util'
-import { server } from './mocks/server'
+import { expect } from '@jest/globals'
 
-// Assign the implementations without redeclaring types
-Object.assign(global, {
-  TextEncoder,
-  TextDecoder
-})
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-// Mock next/navigation
-jest.mock('next/navigation', () => ({
-  useRouter() {
-    return {
-      push: jest.fn(),
-      back: jest.fn(),
-      forward: jest.fn(),
+declare global {
+  namespace jest {
+    interface Matchers<R> {
+      toBeInTheDocument(): R
     }
-  },
-  useSearchParams() {
-    return {
-      get: jest.fn(),
-    }
-  },
-}))
+  }
+}
 
-// Mock next-auth
-jest.mock('next-auth/react', () => ({
-  useSession() {
-    return {
-      data: null,
-      status: 'unauthenticated',
-    }
-  },
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-})) 
+jest.mock('next-auth/react')
+jest.mock('next/navigation') 
