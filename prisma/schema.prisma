@@ -7,60 +7,2089 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String  @map("user_id")
-  type              String
-  provider          String
-  providerAccountId String  @map("provider_account_id")
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
+model users {
+  user_id         Int               @id @default(autoincrement())
+  username        String            @unique @db.VarChar(50)
+  email           String            @unique @db.VarChar(255)
+  password_hash   String
+  salt            String
+  role            String            @default("user") @db.VarChar(20)
+  is_active       Boolean?          @default(true)
+  last_login      DateTime?         @db.Timestamp(6)
+  created_at      DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamp(6)
+  user_sessions   user_sessions[]
+  security_events security_events[]
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique @map("session_token")
-  userId       String   @map("user_id")
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("sessions")
+model user_sessions {
+  session_id String    @id
+  user_id    Int?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  expires_at DateTime  @db.Timestamp(6)
+  is_valid   Boolean?  @default(true)
+  ip_address String?   @db.Inet
+  user_agent String?
+  users      users?    @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user")
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@map("verification_tokens")
+model access_control {
+  access_id   Int       @id @default(autoincrement())
+  role_name   String?   @db.VarChar(100)
+  permissions Json?
+  description String?
+  active      Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
 }
 
-// Update your existing User model
-model User {
-  id            String    @id @default(cuid())
-  email         String?   @unique
-  name          String?
-  role          String    @default("USER")
-  employeeId    Int?      @map("employee_id")
-  isActive      Boolean   @default(true) @map("is_active")
-  lastLogin     DateTime? @map("last_login")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  emailVerified DateTime? @map("email_verified")
-  image         String? // Add this for user avatars
-  accounts      Account[]
-  sessions      Session[]
+model achievement_badges {
+  badge_id                   Int                         @id @default(autoincrement())
+  employee_id                Int?
+  badge_name                 String?                     @db.VarChar(100)
+  category                   String?                     @db.VarChar(50)
+  awarded_date               DateTime?                   @db.Date
+  criteria_met               Json?
+  visibility                 String?                     @db.VarChar(50)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
 
-  @@map("users")
+model achievement_tracking {
+  achievement_id        Int                     @id @default(autoincrement())
+  achievement_type      String?                 @db.VarChar(50)
+  description           String?
+  criteria              Json?
+  points                Int?
+  badge_image_url       String?
+  employee_achievements employee_achievements[]
+}
+
+model action_items {
+  item_id                                                                         Int                         @id @default(autoincrement())
+  employee_id                                                                     Int?
+  assigned_by                                                                     Int?
+  category                                                                        String?                     @db.VarChar(50)
+  description                                                                     String?
+  due_date                                                                        DateTime?                   @db.Date
+  priority                                                                        String?                     @db.VarChar(20)
+  status                                                                          String?                     @db.VarChar(50)
+  completion_date                                                                 DateTime?                   @db.Date
+  created_at                                                                      DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_action_items_assigned_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("action_items_assigned_byToemployee_manager_hierarchy", fields: [assigned_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_action_items_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("action_items_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model alert_configuration {
+  alert_id        Int       @id @default(autoincrement())
+  alert_type      String?   @db.VarChar(50)
+  threshold_value Decimal?  @db.Decimal(5, 2)
+  frequency       String?   @db.VarChar(20)
+  recipients      Json?
+  active          Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamp(6)
+  last_triggered  DateTime? @db.Timestamp(6)
+
+  @@index([alert_type], map: "idx_alert_config_type")
+}
+
+model alert_notifications {
+  notification_id            Int                         @id @default(autoincrement())
+  alert_id                   Int?
+  recipient_id               Int?
+  notification_type          String?                     @db.VarChar(50)
+  sent_at                    DateTime?                   @db.Timestamp(6)
+  acknowledged_at            DateTime?                   @db.Timestamp(6)
+  metric_alerts              metric_alerts?              @relation(fields: [alert_id], references: [alert_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [recipient_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model analytics_dashboard {
+  dashboard_id      Int       @id @default(autoincrement())
+  dashboard_name    String?   @db.VarChar(100)
+  metrics           Json[]
+  refresh_frequency String?   @db.VarChar(50)
+  last_updated      DateTime? @db.Timestamp(6)
+  access_roles      String[]
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model api_endpoints {
+  endpoint_id        BigInt                   @id @default(autoincrement())
+  endpoint_name      String
+  endpoint_path      String
+  method             String
+  is_active          Boolean?                 @default(true)
+  rate_limit         Int?
+  auth_required      Boolean?                 @default(true)
+  response_cache_ttl Unsupported("interval")?
+  created_at         DateTime                 @default(now()) @db.Timestamp(6)
+  updated_at         DateTime                 @default(now()) @db.Timestamp(6)
+  api_requests       api_requests[]
+}
+
+model api_keys {
+  key_id       BigInt         @id @default(autoincrement())
+  api_key      String         @unique
+  client_name  String
+  is_active    Boolean?       @default(true)
+  permissions  Json?
+  rate_limit   Int?
+  expires_at   DateTime?      @db.Timestamp(6)
+  created_at   DateTime       @default(now()) @db.Timestamp(6)
+  last_used_at DateTime?      @db.Timestamp(6)
+  api_requests api_requests[]
+}
+
+model api_requests {
+  request_id        BigInt                   @id @default(autoincrement())
+  endpoint_id       BigInt?
+  api_key_id        BigInt?
+  request_timestamp DateTime                 @default(now()) @db.Timestamp(6)
+  response_time     Unsupported("interval")?
+  status_code       Int?
+  request_details   Json?
+  response_details  Json?
+  api_keys          api_keys?                @relation(fields: [api_key_id], references: [key_id], onDelete: NoAction, onUpdate: NoAction)
+  api_endpoints     api_endpoints?           @relation(fields: [endpoint_id], references: [endpoint_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model audit_log {
+  log_id                     Int                         @id @default(autoincrement())
+  entity_type                String?                     @db.VarChar(50)
+  entity_id                  Int?
+  action_type                String?                     @db.VarChar(50)
+  action_date                DateTime?                   @db.Timestamp(6)
+  performed_by               Int?
+  old_values                 Json?
+  new_values                 Json?
+  ip_address                 String?                     @db.VarChar(50)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [performed_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model automation_workflows {
+  workflow_id         BigInt                @id @default(autoincrement())
+  workflow_name       String
+  workflow_type       String
+  description         String?
+  trigger_type        String
+  trigger_config      Json
+  steps               Json
+  is_active           Boolean?              @default(true)
+  created_at          DateTime              @default(now()) @db.Timestamp(6)
+  updated_at          DateTime              @default(now()) @db.Timestamp(6)
+  last_run            DateTime?             @db.Timestamp(6)
+  workflow_executions workflow_executions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model backup_catalog {
+  backup_id               BigInt                    @id @default(autoincrement())
+  backup_type             String
+  start_time              DateTime                  @default(now()) @db.Timestamp(6)
+  end_time                DateTime?                 @db.Timestamp(6)
+  status                  String                    @default("IN_PROGRESS")
+  size_bytes              BigInt?
+  backup_location         String?
+  metadata                Json?
+  backup_verification_log backup_verification_log[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model backup_configurations {
+  config_id           BigInt                   @id @default(autoincrement())
+  config_name         String
+  backup_type         String
+  schedule_expression String?
+  retention_period    Unsupported("interval")?
+  storage_location    String
+  compression_type    String?                  @default("GZIP")
+  encryption_config   Json?
+  pre_backup_script   String?
+  post_backup_script  String?
+  is_active           Boolean?                 @default(true)
+  created_at          DateTime                 @default(now()) @db.Timestamp(6)
+  updated_at          DateTime                 @default(now()) @db.Timestamp(6)
+  backup_history      backup_history[]
+}
+
+model backup_files {
+  file_id          BigInt          @id @default(autoincrement())
+  backup_id        BigInt?
+  file_path        String
+  file_type        String
+  file_size        BigInt
+  checksum         String
+  compression_type String
+  is_encrypted     Boolean?        @default(false)
+  created_at       DateTime        @default(now()) @db.Timestamp(6)
+  metadata         Json?
+  backup_history   backup_history? @relation(fields: [backup_id], references: [backup_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model backup_history {
+  backup_id             BigInt                 @id @default(autoincrement())
+  config_id             BigInt?
+  backup_start          DateTime               @default(now()) @db.Timestamp(6)
+  backup_end            DateTime?              @db.Timestamp(6)
+  backup_type           String
+  status                String                 @default("RUNNING")
+  file_location         String?
+  file_size             BigInt?
+  checksum              String?
+  error_details         Json?
+  metadata              Json?
+  backup_files          backup_files[]
+  backup_configurations backup_configurations? @relation(fields: [config_id], references: [config_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model backup_verification_log {
+  verification_id      BigInt          @id @default(autoincrement())
+  backup_id            BigInt?
+  verification_time    DateTime        @default(now()) @db.Timestamp(6)
+  verification_status  String
+  verification_details Json?
+  backup_catalog       backup_catalog? @relation(fields: [backup_id], references: [backup_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model baseline_measurements {
+  baseline_id      Int       @id @default(autoincrement())
+  employee_id      Int?
+  measurement_date DateTime? @db.Date
+  kpi_category     String?   @db.VarChar(50)
+  initial_score    Decimal?  @db.Decimal(5, 2)
+}
+
+model capacity_planning {
+  planning_id         Int             @id @default(autoincrement())
+  team_id             Int?
+  period_start        DateTime?       @db.Date
+  period_end          DateTime?       @db.Date
+  total_capacity      Int?
+  allocated_capacity  Int?
+  available_capacity  Int?
+  skills_distribution Json?
+  created_at          DateTime?       @default(now()) @db.Timestamp(6)
+  team_structure      team_structure? @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model career_development_plans {
+  plan_id                    Int                         @id @default(autoincrement())
+  employee_id                Int?
+  role_current               String?                     @db.VarChar(100)
+  role_target                String?                     @db.VarChar(100)
+  timeline_months            Int?
+  development_areas          Json[]
+  progress_status            String?                     @db.VarChar(50)
+  review_dates               DateTime[]                  @db.Date
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model career_progression {
+  progression_id             Int                         @id @default(autoincrement())
+  employee_id                Int?
+  level_start                String?                     @db.VarChar(50)
+  level_current              String?                     @db.VarChar(50)
+  progression_start_date     DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  last_promotion_date        DateTime?                   @db.Date
+  skills_acquired            Json[]
+  achievements               Json[]
+  next_level_requirements    Json?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id], map: "idx_career_progression_employee")
+}
+
+model certification_registry {
+  cert_id                    Int                         @id @default(autoincrement())
+  employee_id                Int?
+  certification_name         String?                     @db.VarChar(100)
+  category                   String?                     @db.VarChar(50)
+  achievement_date           DateTime?                   @db.Date
+  expiry_date                DateTime?                   @db.Date
+  status                     String?                     @db.VarChar(20)
+  score                      Decimal?                    @db.Decimal(5, 2)
+  verification_url           String?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model communication_log {
+  log_id                     Int                         @id @default(autoincrement())
+  template_id                Int?
+  recipient_id               Int?
+  sent_at                    DateTime?                   @default(now()) @db.Timestamp(6)
+  delivery_status            String?                     @db.VarChar(50)
+  open_status                Boolean?                    @default(false)
+  response_tracking          Json?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [recipient_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  communication_templates    communication_templates?    @relation(fields: [template_id], references: [template_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model communication_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  communication_type         String?                     @db.VarChar(50)
+  frequency                  Int?
+  effectiveness_score        Decimal?                    @db.Decimal(5, 2)
+  measurement_period         String?                     @db.VarChar(50)
+  feedback_received          Json?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model communication_templates {
+  template_id       Int                 @id @default(autoincrement())
+  template_type     String?             @db.VarChar(100)
+  subject_template  String?
+  body_template     String?
+  variables         Json?
+  created_at        DateTime?           @default(now()) @db.Timestamp(6)
+  last_modified     DateTime?           @db.Timestamp(6)
+  communication_log communication_log[]
+}
+
+model competency_framework {
+  framework_id           Int       @id @default(autoincrement())
+  category               String?   @db.VarChar(50)
+  level                  Int?
+  required_skills        Json?
+  performance_indicators Json[]
+  assessment_criteria    Json?
+  development_path       Json?
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model configuration_history {
+  history_id            BigInt                 @id @default(autoincrement())
+  config_id             BigInt?
+  previous_value        String?
+  new_value             String?
+  changed_at            DateTime               @default(now()) @db.Timestamp(6)
+  changed_by            String
+  change_reason         String?
+  change_metadata       Json?
+  system_configurations system_configurations? @relation(fields: [config_id], references: [config_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model custom_reports {
+  report_id        Int       @id @default(autoincrement())
+  report_name      String?   @db.VarChar(100)
+  description      String?
+  query_parameters Json?
+  schedule         String?   @db.VarChar(50)
+  recipients       String[]
+  last_run         DateTime? @db.Timestamp(6)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model customer_success_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  escalation_resolution_rate Decimal?                    @db.Decimal(5, 2)
+  business_expansion_impact  Decimal?                    @db.Decimal(10, 2)
+  service_quality_score      Decimal?                    @db.Decimal(5, 2)
+  measurement_period         String?                     @db.VarChar(50)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model dashboard_color_scheme {
+  scheme_id    Int      @id @default(autoincrement())
+  element_type String?  @db.VarChar(50)
+  color_code   String?  @db.VarChar(7)
+  description  String?
+  is_active    Boolean? @default(true)
+}
+
+model dashboard_configuration {
+  config_id        Int       @id @default(autoincrement())
+  dashboard_type   String?   @db.VarChar(50)
+  layout_settings  Json?
+  visible_kpis     Json?
+  refresh_interval Int?
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  last_modified    DateTime? @db.Timestamp(6)
+}
+
+model department {
+  department_id        Int              @id @default(autoincrement())
+  department_name      String           @db.VarChar(100)
+  parent_department_id Int?
+  created_at           DateTime?        @default(now()) @db.Timestamp(6)
+  active               Boolean?         @default(true)
+  department           department?      @relation("departmentTodepartment", fields: [parent_department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
+  other_department     department[]     @relation("departmentTodepartment")
+  manager              manager[]
+  team_structure       team_structure[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model deployment_steps {
+  step_id          BigInt       @id @default(autoincrement())
+  deployment_id    BigInt?
+  step_number      Int
+  step_type        String
+  status           String       @default("PENDING")
+  started_at       DateTime?    @db.Timestamp(6)
+  completed_at     DateTime?    @db.Timestamp(6)
+  sql_command      String?
+  execution_result Json?
+  deployments      deployments? @relation(fields: [deployment_id], references: [deployment_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model deployments {
+  deployment_id    BigInt             @id @default(autoincrement())
+  version          String
+  deployment_type  String
+  status           String
+  started_at       DateTime           @default(now()) @db.Timestamp(6)
+  completed_at     DateTime?          @db.Timestamp(6)
+  deployed_by      String
+  deployment_plan  Json
+  rollback_plan    Json?
+  deployment_steps deployment_steps[]
+  schema_versions  schema_versions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model development_paths {
+  path_id                 Int               @id @default(autoincrement())
+  category                prosper_category?
+  level                   Int?
+  required_skills         Json?
+  required_scores         Json?
+  certifications          Json?
+  next_level_requirements String?
+
+  @@index([category], map: "idx_development_paths_category")
+}
+
+model employee_achievements {
+  id                         Int                         @id @default(autoincrement())
+  employee_id                Int?
+  achievement_id             Int?
+  earned_date                DateTime?                   @default(now()) @db.Timestamp(6)
+  points_earned              Int?
+  visibility_level           String?                     @db.VarChar(20)
+  achievement_tracking       achievement_tracking?       @relation(fields: [achievement_id], references: [achievement_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model employee_goals {
+  goal_id                                                               Int                         @id @default(autoincrement())
+  employee_id                                                           Int?
+  period_id                                                             Int?
+  category                                                              String?                     @db.VarChar(50)
+  goal_description                                                      String?
+  target_date                                                           DateTime?                   @db.Date
+  priority                                                              String?                     @db.VarChar(20)
+  status                                                                String?                     @db.VarChar(50)
+  progress_percentage                                                   Decimal?                    @db.Decimal(5, 2)
+  metrics                                                               Json?
+  created_at                                                            DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy                                            employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  evaluation_periods                                                    evaluation_periods?         @relation(fields: [period_id], references: [period_id], onDelete: NoAction, onUpdate: NoAction)
+  goal_dependencies_goal_dependencies_dependent_goal_idToemployee_goals goal_dependencies[]         @relation("goal_dependencies_dependent_goal_idToemployee_goals")
+  goal_dependencies_goal_dependencies_goal_idToemployee_goals           goal_dependencies[]         @relation("goal_dependencies_goal_idToemployee_goals")
+  goal_milestones                                                       goal_milestones[]
+  goal_reviews                                                          goal_reviews[]
+}
+
+model employee_manager_hierarchy {
+  employee_id                                                                                            Int                                @id @default(autoincrement())
+  employee_name                                                                                          String                             @db.VarChar(100)
+  manager_id                                                                                             Int?
+  department_id                                                                                          Int?
+  team_id                                                                                                Int?
+  role                                                                                                   String?                            @db.VarChar(100)
+  last_updated                                                                                           DateTime?                          @default(now()) @db.Timestamp(6)
+  active                                                                                                 Boolean?                           @default(true)
+  achievement_badges                                                                                     achievement_badges[]
+  action_items_action_items_assigned_byToemployee_manager_hierarchy                                      action_items[]                     @relation("action_items_assigned_byToemployee_manager_hierarchy")
+  action_items_action_items_employee_idToemployee_manager_hierarchy                                      action_items[]                     @relation("action_items_employee_idToemployee_manager_hierarchy")
+  alert_notifications                                                                                    alert_notifications[]
+  audit_log                                                                                              audit_log[]
+  career_development_plans                                                                               career_development_plans[]
+  career_progression                                                                                     career_progression[]
+  certification_registry                                                                                 certification_registry[]
+  communication_log                                                                                      communication_log[]
+  communication_metrics                                                                                  communication_metrics[]
+  customer_success_metrics                                                                               customer_success_metrics[]
+  employee_achievements                                                                                  employee_achievements[]
+  employee_goals                                                                                         employee_goals[]
+  employee_manager_hierarchy                                                                             employee_manager_hierarchy?        @relation("employee_manager_hierarchyToemployee_manager_hierarchy", fields: [manager_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  other_employee_manager_hierarchy                                                                       employee_manager_hierarchy[]       @relation("employee_manager_hierarchyToemployee_manager_hierarchy")
+  employee_recognition_employee_recognition_employee_idToemployee_manager_hierarchy                      employee_recognition[]             @relation("employee_recognition_employee_idToemployee_manager_hierarchy")
+  employee_recognition_employee_recognition_recognizer_idToemployee_manager_hierarchy                    employee_recognition[]             @relation("employee_recognition_recognizer_idToemployee_manager_hierarchy")
+  employee_risk_assessment                                                                               employee_risk_assessment[]
+  enablement_points_tracking                                                                             enablement_points_tracking[]
+  evaluation_submissions                                                                                 evaluation_submissions[]
+  feedback_actions                                                                                       feedback_actions[]
+  goal_achievement_metrics                                                                               goal_achievement_metrics[]
+  goal_reviews                                                                                           goal_reviews[]
+  improvement_initiatives                                                                                improvement_initiatives[]
+  improvement_suggestions                                                                                improvement_suggestions[]
+  knowledge_transfer_knowledge_transfer_source_employee_idToemployee_manager_hierarchy                   knowledge_transfer[]               @relation("knowledge_transfer_source_employee_idToemployee_manager_hierarchy")
+  knowledge_transfer_knowledge_transfer_target_employee_idToemployee_manager_hierarchy                   knowledge_transfer[]               @relation("knowledge_transfer_target_employee_idToemployee_manager_hierarchy")
+  learning_paths                                                                                         learning_paths[]
+  manager                                                                                                manager?
+  manager_engagement_metrics                                                                             manager_engagement_metrics[]
+  mentorship_matching_mentorship_matching_mentee_idToemployee_manager_hierarchy                          mentorship_matching[]              @relation("mentorship_matching_mentee_idToemployee_manager_hierarchy")
+  mentorship_matching_mentorship_matching_mentor_idToemployee_manager_hierarchy                          mentorship_matching[]              @relation("mentorship_matching_mentor_idToemployee_manager_hierarchy")
+  mentorship_programs_mentorship_programs_mentee_idToemployee_manager_hierarchy                          mentorship_programs[]              @relation("mentorship_programs_mentee_idToemployee_manager_hierarchy")
+  mentorship_programs_mentorship_programs_mentor_idToemployee_manager_hierarchy                          mentorship_programs[]              @relation("mentorship_programs_mentor_idToemployee_manager_hierarchy")
+  notification_log                                                                                       notification_log[]
+  notification_templates                                                                                 notification_templates[]
+  operational_efficiency_metrics                                                                         operational_efficiency_metrics[]
+  opt_in_tracking                                                                                        opt_in_tracking[]
+  performance_delta_tracking_performance_delta_tracking_approved_byToemployee_manager_hierarchy          performance_delta_tracking[]       @relation("performance_delta_tracking_approved_byToemployee_manager_hierarchy")
+  performance_delta_tracking_performance_delta_tracking_employee_idToemployee_manager_hierarchy          performance_delta_tracking[]       @relation("performance_delta_tracking_employee_idToemployee_manager_hierarchy")
+  performance_feedback_performance_feedback_employee_idToemployee_manager_hierarchy                      performance_feedback[]             @relation("performance_feedback_employee_idToemployee_manager_hierarchy")
+  performance_feedback_performance_feedback_provider_idToemployee_manager_hierarchy                      performance_feedback[]             @relation("performance_feedback_provider_idToemployee_manager_hierarchy")
+  performance_impact                                                                                     performance_impact[]
+  performance_improvement_metrics                                                                        performance_improvement_metrics[]
+  performance_improvements                                                                               performance_improvements[]
+  performance_metrics                                                                                    performance_metrics[]
+  portfolio_base                                                                                         portfolio_base[]
+  portfolio_brownfield_portfolio_brownfield_employee_idToemployee_manager_hierarchy                      portfolio_brownfield[]             @relation("portfolio_brownfield_employee_idToemployee_manager_hierarchy")
+  portfolio_brownfield_portfolio_brownfield_last_modified_byToemployee_manager_hierarchy                 portfolio_brownfield[]             @relation("portfolio_brownfield_last_modified_byToemployee_manager_hierarchy")
+  portfolio_cloud_services_portfolio_cloud_services_employee_idToemployee_manager_hierarchy              portfolio_cloud_services[]         @relation("portfolio_cloud_services_employee_idToemployee_manager_hierarchy")
+  portfolio_cloud_services_portfolio_cloud_services_last_modified_byToemployee_manager_hierarchy         portfolio_cloud_services[]         @relation("portfolio_cloud_services_last_modified_byToemployee_manager_hierarchy")
+  portfolio_design_success_portfolio_design_success_employee_idToemployee_manager_hierarchy              portfolio_design_success[]         @relation("portfolio_design_success_employee_idToemployee_manager_hierarchy")
+  portfolio_design_success_portfolio_design_success_last_modified_byToemployee_manager_hierarchy         portfolio_design_success[]         @relation("portfolio_design_success_last_modified_byToemployee_manager_hierarchy")
+  portfolio_preferred_success_portfolio_preferred_success_employee_idToemployee_manager_hierarchy        portfolio_preferred_success[]      @relation("portfolio_preferred_success_employee_idToemployee_manager_hierarchy")
+  portfolio_preferred_success_portfolio_preferred_success_last_modified_byToemployee_manager_hierarchy   portfolio_preferred_success[]      @relation("portfolio_preferred_success_last_modified_byToemployee_manager_hierarchy")
+  portfolio_premium_engagement_portfolio_premium_engagement_employee_idToemployee_manager_hierarchy      portfolio_premium_engagement[]     @relation("portfolio_premium_engagement_employee_idToemployee_manager_hierarchy")
+  portfolio_premium_engagement_portfolio_premium_engagement_last_modified_byToemployee_manager_hierarchy portfolio_premium_engagement[]     @relation("portfolio_premium_engagement_last_modified_byToemployee_manager_hierarchy")
+  portfolio_training                                                                                     portfolio_training[]
+  project_assignments_project_assignments_employee_idToemployee_manager_hierarchy                        project_assignments[]              @relation("project_assignments_employee_idToemployee_manager_hierarchy")
+  project_assignments_project_assignments_last_modified_byToemployee_manager_hierarchy                   project_assignments[]              @relation("project_assignments_last_modified_byToemployee_manager_hierarchy")
+  relationship_assessment                                                                                relationship_assessment[]
+  relationship_improvement_metrics                                                                       relationship_improvement_metrics[]
+  resource_allocation_resource_allocation_employee_idToemployee_manager_hierarchy                        resource_allocation[]              @relation("resource_allocation_employee_idToemployee_manager_hierarchy")
+  resource_allocation_resource_allocation_last_modified_byToemployee_manager_hierarchy                   resource_allocation[]              @relation("resource_allocation_last_modified_byToemployee_manager_hierarchy")
+  resource_allocation_history_resource_allocation_history_changed_byToemployee_manager_hierarchy         resource_allocation_history[]      @relation("resource_allocation_history_changed_byToemployee_manager_hierarchy")
+  resource_allocation_history_resource_allocation_history_employee_idToemployee_manager_hierarchy        resource_allocation_history[]      @relation("resource_allocation_history_employee_idToemployee_manager_hierarchy")
+  score_history_score_history_changed_byToemployee_manager_hierarchy                                     score_history[]                    @relation("score_history_changed_byToemployee_manager_hierarchy")
+  score_history_score_history_employee_idToemployee_manager_hierarchy                                    score_history[]                    @relation("score_history_employee_idToemployee_manager_hierarchy")
+  skills_inventory                                                                                       skills_inventory[]
+  stakeholder_relationship_history                                                                       stakeholder_relationship_history[]
+  system_settings                                                                                        system_settings[]
+  team_structure_team_structure_last_modified_byToemployee_manager_hierarchy                             team_structure[]                   @relation("team_structure_last_modified_byToemployee_manager_hierarchy")
+  team_structure_team_structure_manager_idToemployee_manager_hierarchy                                   team_structure[]                   @relation("team_structure_manager_idToemployee_manager_hierarchy")
+  training_records                                                                                       training_records[]
+  workflow_instances_workflow_instances_current_assigneeToemployee_manager_hierarchy                     workflow_instances[]               @relation("workflow_instances_current_assigneeToemployee_manager_hierarchy")
+  workflow_instances_workflow_instances_initiator_idToemployee_manager_hierarchy                         workflow_instances[]               @relation("workflow_instances_initiator_idToemployee_manager_hierarchy")
+  workflow_instances_workflow_instances_last_modified_byToemployee_manager_hierarchy                     workflow_instances[]               @relation("workflow_instances_last_modified_byToemployee_manager_hierarchy")
+  workflow_step_history                                                                                  workflow_step_history[]
+}
+
+model employee_recognition {
+  recognition_id                                                                            Int                         @id @default(autoincrement())
+  employee_id                                                                               Int?
+  recognizer_id                                                                             Int?
+  recognition_type                                                                          String?                     @db.VarChar(50)
+  description                                                                               String?
+  award_date                                                                                DateTime?                   @db.Date
+  impact_level                                                                              String?                     @db.VarChar(20)
+  visibility                                                                                String?                     @db.VarChar(50)
+  created_at                                                                                DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_employee_recognition_employee_idToemployee_manager_hierarchy   employee_manager_hierarchy? @relation("employee_recognition_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_employee_recognition_recognizer_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("employee_recognition_recognizer_idToemployee_manager_hierarchy", fields: [recognizer_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model employee_risk_assessment {
+  assessment_id              Int                         @id @default(autoincrement())
+  employee_id                Int?
+  assessment_date            DateTime?                   @db.Date
+  risk_level                 String?                     @db.VarChar(20)
+  risk_factors               Json?
+  mitigation_plan            String?
+  follow_up_date             DateTime?                   @db.Date
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model enablement_activities_catalog {
+  activity_id        Int      @id @default(autoincrement())
+  activity_name      String?  @db.VarChar(200)
+  category           String?  @db.VarChar(100)
+  points_value       Int?
+  required_for_level String[] @db.VarChar(50)
+  validity_period    Int?
+  is_active          Boolean? @default(true)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model enablement_points_tracking {
+  tracking_id                Int                         @id @default(autoincrement())
+  employee_id                Int?
+  activity_type              String?                     @db.VarChar(100)
+  points_earned              Int?
+  completion_date            DateTime?                   @db.Date
+  verification_status        String?                     @db.VarChar(50)
+  expiry_date                DateTime?                   @db.Date
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model enablement_progress_metrics {
+  metric_id            Int       @id @default(autoincrement())
+  period_start         DateTime? @db.Date
+  period_end           DateTime? @db.Date
+  total_participants   Int?
+  completed_activities Int?
+  participation_rate   Decimal?  @db.Decimal(5, 2)
+  activity_breakdown   Json?
+}
+
+model engagement_predictions {
+  prediction_id      Int       @id @default(autoincrement())
+  metric_type        String?   @db.VarChar(50)
+  target_date        DateTime? @db.Date
+  predicted_value    Decimal?  @db.Decimal(5, 2)
+  confidence_level   Decimal?  @db.Decimal(5, 2)
+  factors_considered Json?
+  model_version      String?   @db.VarChar(50)
+}
+
+model engagement_risk_factors {
+  factor_id          Int      @id @default(autoincrement())
+  factor_name        String?  @db.VarChar(100)
+  weight             Decimal? @db.Decimal(3, 2)
+  threshold_values   Json?
+  data_source        String?  @db.VarChar(50)
+  calculation_method String?
+}
+
+model evaluation_periods {
+  period_id              Int                      @id @default(autoincrement())
+  period_name            String?                  @db.VarChar(100)
+  start_date             DateTime?                @db.Date
+  end_date               DateTime?                @db.Date
+  status                 String?                  @db.VarChar(50)
+  category               String?                  @db.VarChar(50)
+  reminder_dates         Json?
+  created_at             DateTime?                @default(now()) @db.Timestamp(6)
+  employee_goals         employee_goals[]
+  evaluation_submissions evaluation_submissions[]
+}
+
+model evaluation_submissions {
+  submission_id              Int                         @id @default(autoincrement())
+  period_id                  Int?
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  submission_date            DateTime?                   @db.Timestamp(6)
+  status                     String?                     @db.VarChar(50)
+  last_modified              DateTime?                   @db.Timestamp(6)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  evaluation_periods         evaluation_periods?         @relation(fields: [period_id], references: [period_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model feedback_actions {
+  action_id                  Int                         @id @default(autoincrement())
+  suggestion_id              Int?
+  action_type                String?                     @db.VarChar(50)
+  assigned_to                Int?
+  due_date                   DateTime?                   @db.Date
+  completion_status          String?                     @db.VarChar(20)
+  impact_measurement         Json?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [assigned_to], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  improvement_suggestions    improvement_suggestions?    @relation(fields: [suggestion_id], references: [suggestion_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model form_submission_windows {
+  window_id   Int       @id @default(autoincrement())
+  form_type   String?   @db.VarChar(50)
+  start_date  DateTime? @db.Timestamp(6)
+  end_date    DateTime? @db.Timestamp(6)
+  employee_id Int?
+  status      String?   @db.VarChar(20)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model goal_achievement_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  period_start               DateTime?                   @db.Date
+  period_end                 DateTime?                   @db.Date
+  total_goals                Int?
+  goals_achieved             Int?
+  achievement_rate           Decimal?                    @db.Decimal(5, 2)
+  target_threshold           Decimal?                    @default(80.00) @db.Decimal(5, 2)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model goal_dependencies {
+  dependency_id                                                      Int             @id @default(autoincrement())
+  goal_id                                                            Int?
+  dependent_goal_id                                                  Int?
+  dependency_type                                                    String?         @db.VarChar(50)
+  impact_level                                                       String?         @db.VarChar(20)
+  status                                                             String?         @db.VarChar(20)
+  employee_goals_goal_dependencies_dependent_goal_idToemployee_goals employee_goals? @relation("goal_dependencies_dependent_goal_idToemployee_goals", fields: [dependent_goal_id], references: [goal_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_goals_goal_dependencies_goal_idToemployee_goals           employee_goals? @relation("goal_dependencies_goal_idToemployee_goals", fields: [goal_id], references: [goal_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model goal_milestones {
+  milestone_id      Int             @id @default(autoincrement())
+  goal_id           Int?
+  milestone_name    String?         @db.VarChar(100)
+  target_date       DateTime?       @db.Date
+  completion_status String?         @db.VarChar(20)
+  blocking_issues   Json?
+  support_needed    String?
+  employee_goals    employee_goals? @relation(fields: [goal_id], references: [goal_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model goal_reviews {
+  review_id                  Int                         @id @default(autoincrement())
+  goal_id                    Int?
+  review_date                DateTime?                   @db.Date
+  reviewer_id                Int?
+  status                     String?                     @db.VarChar(50)
+  comments                   String?
+  next_steps                 Json?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_goals             employee_goals?             @relation(fields: [goal_id], references: [goal_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [reviewer_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model health_checks {
+  check_id            BigInt    @id @default(autoincrement())
+  check_name          String
+  check_type          String
+  check_query         String
+  threshold_config    Json?
+  is_active           Boolean?  @default(true)
+  last_check          DateTime? @db.Timestamp(6)
+  last_status         String?
+  notification_config Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model implementation_milestones {
+  milestone_id   Int       @id @default(autoincrement())
+  milestone_name String?   @db.VarChar(200)
+  target_date    DateTime? @db.Date
+  actual_date    DateTime? @db.Date
+  status         String?   @db.VarChar(50)
+  dependencies   Int[]
+  notes          String?
+}
+
+model improvement_initiatives {
+  initiative_id              Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  description                String?
+  start_date                 DateTime?                   @db.Date
+  target_completion_date     DateTime?                   @db.Date
+  status                     String?                     @db.VarChar(50)
+  progress_metrics           Json?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model improvement_suggestions {
+  suggestion_id              Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  suggestion_text            String?
+  impact_area                String?                     @db.VarChar(50)
+  status                     String?                     @db.VarChar(20)
+  votes                      Int?                        @default(0)
+  implementation_status      String?                     @db.VarChar(20)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  feedback_actions           feedback_actions[]
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model job_executions {
+  execution_id   BigInt          @id @default(autoincrement())
+  job_id         BigInt?
+  scheduled_time DateTime        @db.Timestamp(6)
+  started_at     DateTime        @default(now()) @db.Timestamp(6)
+  completed_at   DateTime?       @db.Timestamp(6)
+  status         String          @default("RUNNING")
+  result_data    Json?
+  error_details  Json?
+  scheduled_jobs scheduled_jobs? @relation(fields: [job_id], references: [job_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model knowledge_transfer {
+  transfer_id                                                                                  Int                         @id @default(autoincrement())
+  source_employee_id                                                                           Int?
+  target_employee_id                                                                           Int?
+  category                                                                                     String?                     @db.VarChar(50)
+  knowledge_area                                                                               String?                     @db.VarChar(100)
+  start_date                                                                                   DateTime?                   @db.Date
+  completion_date                                                                              DateTime?                   @db.Date
+  transfer_status                                                                              String?                     @db.VarChar(50)
+  effectiveness_metrics                                                                        Json?
+  verification_methods                                                                         Json[]
+  created_at                                                                                   DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_knowledge_transfer_source_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("knowledge_transfer_source_employee_idToemployee_manager_hierarchy", fields: [source_employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_knowledge_transfer_target_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("knowledge_transfer_target_employee_idToemployee_manager_hierarchy", fields: [target_employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model kpi_calculation_rules {
+  rule_id          Int               @id @default(autoincrement())
+  kpi_category     prosper_category?
+  calculation_type String?           @db.VarChar(50)
+  weight_factor    Decimal?          @db.Decimal(3, 2)
+  formula          String?
+  validation_rules Json?
+  effective_date   DateTime?         @db.Date
+  is_active        Boolean?          @default(true)
+}
+
+model kpi_relationship_metrics {
+  metric_id         Int       @id @default(autoincrement())
+  employee_id       Int?
+  relationship_type String?   @db.VarChar(50)
+  strength_score    Decimal?  @db.Decimal(5, 2)
+  last_interaction  DateTime? @db.Date
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model kpi_weight_config {
+  config_id      Int       @id @default(autoincrement())
+  role_type      String?   @db.VarChar(50)
+  kpi_type       String?   @db.VarChar(50)
+  weight         Decimal?  @db.Decimal(3, 2)
+  effective_date DateTime? @db.Date
+  end_date       DateTime? @db.Date
+}
+
+model learning_paths {
+  path_id                    Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  current_level              String?                     @db.VarChar(50)
+  target_level               String?                     @db.VarChar(50)
+  required_skills            Json[]
+  completed_modules          Json[]
+  start_date                 DateTime?                   @db.Date
+  target_completion_date     DateTime?                   @db.Date
+  progress_percentage        Decimal?                    @db.Decimal(5, 2)
+  status                     String?                     @db.VarChar(20)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model login_attempts {
+  attempt_id   Int       @id @default(autoincrement())
+  username     String?   @db.VarChar(50)
+  ip_address   String?   @db.Inet
+  success      Boolean?
+  attempt_time DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model maintenance_history {
+  history_id           BigInt                @id @default(autoincrement())
+  schedule_id          BigInt?
+  start_time           DateTime              @default(now()) @db.Timestamp(6)
+  end_time             DateTime?             @db.Timestamp(6)
+  status               String
+  affected_objects     Json?
+  performance_impact   Json?
+  error_details        String?
+  maintenance_schedule maintenance_schedule? @relation(fields: [schedule_id], references: [schedule_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model maintenance_schedule {
+  schedule_id         BigInt                  @id @default(autoincrement())
+  task_name           String
+  task_type           String
+  frequency           Unsupported("interval")
+  last_run            DateTime?               @db.Timestamp(6)
+  next_run            DateTime?               @db.Timestamp(6)
+  is_active           Boolean?                @default(true)
+  configuration       Json?
+  maintenance_history maintenance_history[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model maintenance_tasks {
+  task_id         BigInt    @id @default(autoincrement())
+  task_name       String
+  task_type       String
+  schedule_type   String
+  schedule_config Json
+  last_run        DateTime? @db.Timestamp(6)
+  next_run        DateTime? @db.Timestamp(6)
+  is_active       Boolean?  @default(true)
+  created_at      DateTime  @default(now()) @db.Timestamp(6)
+  updated_at      DateTime  @default(now()) @db.Timestamp(6)
+}
+
+model manager {
+  manager_id                 Int                        @id
+  manager_name               String?                    @db.VarChar(100)
+  department_id              Int?
+  level                      String?                    @db.VarChar(50)
+  start_date                 DateTime?                  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  direct_reports             Int?                       @default(0)
+  status                     String?                    @default("Active") @db.VarChar(20)
+  department                 department?                @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy employee_manager_hierarchy @relation(fields: [manager_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([department_id], map: "idx_manager_dept")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model manager_engagement_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  manager_id                 Int?
+  period_start               DateTime?                   @db.Date
+  period_end                 DateTime?                   @db.Date
+  reviews_due                Int?
+  reviews_completed          Int?
+  feedback_provided          Int?
+  engagement_score           Decimal?                    @db.Decimal(5, 2)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [manager_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model mentorship_interactions {
+  interaction_id       Int                  @id @default(autoincrement())
+  match_id             Int?
+  interaction_date     DateTime?            @db.Timestamp(6)
+  interaction_type     String?              @db.VarChar(50)
+  topics_covered       String[]
+  action_items         Json?
+  effectiveness_rating Int?
+  mentorship_matching  mentorship_matching? @relation(fields: [match_id], references: [match_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model mentorship_matching {
+  match_id                                                                             Int                         @id @default(autoincrement())
+  mentor_id                                                                            Int?
+  mentee_id                                                                            Int?
+  program_focus                                                                        Json?
+  start_date                                                                           DateTime?                   @db.Date
+  end_date                                                                             DateTime?                   @db.Date
+  success_metrics                                                                      Json?
+  status                                                                               String?                     @db.VarChar(20)
+  mentorship_interactions                                                              mentorship_interactions[]
+  employee_manager_hierarchy_mentorship_matching_mentee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("mentorship_matching_mentee_idToemployee_manager_hierarchy", fields: [mentee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_mentorship_matching_mentor_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("mentorship_matching_mentor_idToemployee_manager_hierarchy", fields: [mentor_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model mentorship_programs {
+  program_id                                                                           Int                         @id @default(autoincrement())
+  mentor_id                                                                            Int?
+  mentee_id                                                                            Int?
+  start_date                                                                           DateTime?                   @db.Date
+  end_date                                                                             DateTime?                   @db.Date
+  focus_areas                                                                          Json[]
+  status                                                                               String?                     @db.VarChar(50)
+  progress_notes                                                                       Json[]
+  created_at                                                                           DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_mentorship_programs_mentee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("mentorship_programs_mentee_idToemployee_manager_hierarchy", fields: [mentee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_mentorship_programs_mentor_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("mentorship_programs_mentor_idToemployee_manager_hierarchy", fields: [mentor_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model metric_aggregations {
+  aggregation_id BigInt   @id @default(autoincrement())
+  metric_name    String
+  granularity    String
+  time_bucket    DateTime @db.Timestamp(6)
+  min_value      Decimal? @db.Decimal
+  max_value      Decimal? @db.Decimal
+  avg_value      Decimal? @db.Decimal
+  sum_value      Decimal? @db.Decimal
+  count_value    BigInt?
+  percentiles    Json?
+  dimensions     Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model metric_alerts {
+  alert_id            Int                   @id @default(autoincrement())
+  metric_type         String?               @db.VarChar(50)
+  threshold_type      String?               @db.VarChar(20)
+  threshold_value     Decimal?              @db.Decimal(5, 2)
+  current_value       Decimal?              @db.Decimal(5, 2)
+  alert_status        String?               @db.VarChar(20)
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  alert_notifications alert_notifications[]
+}
+
+model metric_correlations {
+  correlation_id          Int       @id @default(autoincrement())
+  primary_metric          String?   @db.VarChar(50)
+  correlated_metric       String?   @db.VarChar(50)
+  correlation_coefficient Decimal?  @db.Decimal(5, 4)
+  significance_level      Decimal?  @db.Decimal(5, 4)
+  analysis_period_start   DateTime? @db.Date
+  analysis_period_end     DateTime? @db.Date
+  insights                String?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_channels {
+  channel_id           BigInt                 @id @default(autoincrement())
+  channel_name         String
+  channel_type         String
+  configuration        Json
+  is_active            Boolean?               @default(true)
+  created_at           DateTime               @default(now()) @db.Timestamp(6)
+  updated_at           DateTime               @default(now()) @db.Timestamp(6)
+  notification_history notification_history[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_history {
+  notification_id        BigInt                  @id @default(autoincrement())
+  channel_id             BigInt?
+  template_id            Int? // Changed from BigInt to Int to match notification_templates
+  notification_type      String
+  status                 String                  @default("PENDING")
+  recipient              String?
+  subject                String?
+  body                   String?
+  sent_at                DateTime?               @db.Timestamp(6)
+  error_details          Json?
+  metadata               Json?
+  notification_channels  notification_channels?  @relation(fields: [channel_id], references: [channel_id], onDelete: NoAction, onUpdate: NoAction)
+  notification_templates notification_templates? @relation(fields: [template_id], references: [template_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model notification_log {
+  log_id                     Int                         @id @default(autoincrement())
+  template_id                BigInt?
+  recipient_id               Int?
+  notification_type          String?                     @db.VarChar(50)
+  status                     String?                     @db.VarChar(50)
+  sent_at                    DateTime?                   @db.Timestamp(6)
+  delivery_status            String?                     @db.VarChar(50)
+  read_at                    DateTime?                   @db.Timestamp(6)
+  error_message              String?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [recipient_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model notification_templates {
+  template_id                Int                         @id @default(autoincrement())
+  template_name              String?                     @db.VarChar(100)
+  category                   String?                     @db.VarChar(50)
+  subject_template           String?
+  body_template              String?
+  variables                  Json?
+  active                     Boolean?                    @default(true)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  template_type              String?                     @db.VarChar(50)
+  html_content               String?
+  required_placeholders      String[]
+  cc_roles                   String[]
+  bcc_roles                  String[]
+  version                    Int?                        @default(1)
+  last_modified_by           Int?
+  last_modified_at           DateTime?                   @default(now()) @db.Timestamp(6)
+  notification_history       notification_history[]
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model operational_efficiency_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  time_entry_compliance      Boolean?
+  forecast_accuracy          Decimal?                    @db.Decimal(5, 2)
+  bsc_completion             Boolean?
+  measurement_date           DateTime?                   @db.Date
+  notes                      String?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model opt_in_metrics {
+  metric_id      Int       @id @default(autoincrement())
+  year           Int?
+  quarter        Int?
+  total_invited  Int?
+  total_opted_in Int?
+  opt_in_rate    Decimal?  @db.Decimal(5, 2)
+  target_rate    Decimal?  @db.Decimal(5, 2)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model opt_in_tracking {
+  tracking_id                Int                         @id @default(autoincrement())
+  employee_id                Int?
+  opt_in_date                DateTime?                   @db.Date
+  manager_approval_date      DateTime?                   @db.Date
+  status                     String?                     @db.VarChar(50)
+  comments                   String?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model optimization_recommendations {
+  recommendation_id  BigInt    @id @default(autoincrement())
+  category           String
+  priority           String
+  title              String
+  description        String
+  current_value      String?
+  recommended_value  String?
+  estimated_impact   Json?
+  implementation_sql String?
+  status             String    @default("PENDING")
+  created_at         DateTime  @default(now()) @db.Timestamp(6)
+  implemented_at     DateTime? @db.Timestamp(6)
+  validation_results Json?
+  metadata           Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model participation_metrics {
+  metric_id          Int       @id @default(autoincrement())
+  cycle_date         DateTime? @db.Date
+  total_eligible     Int?
+  total_submitted    Int?
+  participation_rate Decimal?  @db.Decimal(5, 2)
+  cycle_type         String?   @db.VarChar(50)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model performance_alerts {
+  alert_id          BigInt    @id @default(autoincrement())
+  metric_name       String
+  alert_type        String
+  threshold_value   Decimal   @db.Decimal
+  current_value     Decimal   @db.Decimal
+  alert_time        DateTime  @default(now()) @db.Timestamp(6)
+  resolution_time   DateTime? @db.Timestamp(6)
+  status            String    @default("ACTIVE")
+  notification_sent Boolean?  @default(false)
+  metadata          Json?
+}
+
+model performance_baselines {
+  baseline_id        BigInt                  @id @default(autoincrement())
+  metric_name        String
+  baseline_value     Decimal                 @db.Decimal
+  calculation_window Unsupported("interval")
+  last_updated       DateTime                @default(now()) @db.Timestamp(6)
+  confidence_score   Decimal?                @db.Decimal
+  baseline_data      Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model performance_delta_tracking {
+  delta_id                                                                                      Int                         @id @default(autoincrement())
+  employee_id                                                                                   Int?
+  kpi_category                                                                                  prosper_category?
+  previous_score                                                                                Decimal?                    @db.Decimal(5, 2)
+  new_score                                                                                     Decimal?                    @db.Decimal(5, 2)
+  change_date                                                                                   DateTime?                   @default(now()) @db.Timestamp(6)
+  justification                                                                                 String?
+  approved_by                                                                                   Int?
+  employee_manager_hierarchy_performance_delta_tracking_approved_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("performance_delta_tracking_approved_byToemployee_manager_hierarchy", fields: [approved_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_performance_delta_tracking_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("performance_delta_tracking_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_feedback {
+  feedback_id                                                                             Int                         @id @default(autoincrement())
+  employee_id                                                                             Int?
+  provider_id                                                                             Int?
+  category                                                                                String?                     @db.VarChar(50)
+  feedback_type                                                                           String?                     @db.VarChar(50)
+  feedback_date                                                                           DateTime?                   @db.Date
+  content                                                                                 String?
+  visibility                                                                              String?                     @db.VarChar(50)
+  impact_rating                                                                           Decimal?                    @db.Decimal(5, 2)
+  created_at                                                                              DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_performance_feedback_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("performance_feedback_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_performance_feedback_provider_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("performance_feedback_provider_idToemployee_manager_hierarchy", fields: [provider_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_impact {
+  impact_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  initiative_name            String?                     @db.VarChar(100)
+  impact_date                DateTime?                   @db.Date
+  metrics_before             Json?
+  metrics_after              Json?
+  roi_calculation            Decimal?                    @db.Decimal(10, 2)
+  impact_evidence            String[]
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model performance_improvement_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  measurement_period         String?                     @db.VarChar(50)
+  baseline_score             Decimal?                    @db.Decimal(5, 2)
+  current_score              Decimal?                    @db.Decimal(5, 2)
+  improvement_percentage     Decimal?                    @db.Decimal(5, 2)
+  target_achieved            Boolean?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_improvements {
+  improvement_id             Int                         @id @default(autoincrement())
+  employee_id                Int?
+  area_of_improvement        String?                     @db.VarChar(100)
+  initial_score              Decimal?                    @db.Decimal(5, 2)
+  target_score               Decimal?                    @db.Decimal(5, 2)
+  current_score              Decimal?                    @db.Decimal(5, 2)
+  action_plan                Json?
+  review_frequency           String?                     @db.VarChar(50)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  metric_name                String?                     @db.VarChar(100)
+  metric_value               Decimal?                    @db.Decimal(10, 2)
+  measurement_date           DateTime?                   @db.Date
+  comparison_period          String?                     @db.VarChar(50)
+  trend_direction            String?                     @db.VarChar(20)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  calculation_formula        String?
+  weight                     Decimal?                    @db.Decimal(3, 2)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model performance_patterns {
+  pattern_id             Int       @id @default(autoincrement())
+  pattern_name           String?   @db.VarChar(100)
+  detection_rules        Json?
+  impact_level           String?   @db.VarChar(20)
+  occurrence_frequency   Int?
+  action_recommendations String?
+  created_at             DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model performance_scores {
+  score_id           Int       @id @default(autoincrement())
+  employee_id        Int?
+  category           String?   @db.VarChar(50)
+  initial_self_score Decimal?  @db.Decimal(5, 2)
+  concurrent_score   Decimal?  @db.Decimal(5, 2)
+  delta_score        Decimal?  @db.Decimal(5, 2)
+  self_score         Decimal?  @db.Decimal(5, 2)
+  manager_score      Decimal?  @db.Decimal(5, 2)
+  manager_comment    String?
+  challenge_score    Decimal?  @db.Decimal(5, 2)
+  average_score      Decimal?  @db.Decimal(5, 2)
+  evaluation_date    DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  service_id         Int?
+  comments           String?
+  last_modified_by   Int?
+  last_modified_at   DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_base {
+  score_id                   Int                         @id @default(autoincrement())
+  employee_id                Int?
+  evaluation_date            DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  initial_self_score         Decimal?                    @db.Decimal(5, 2)
+  concurrent_score           Decimal?                    @db.Decimal(5, 2)
+  delta_score                Decimal?                    @db.Decimal(5, 2)
+  self_score                 Decimal?                    @db.Decimal(5, 2)
+  manager_score              Decimal?                    @db.Decimal(5, 2)
+  manager_comment            String?
+  challenge_score            Decimal?                    @db.Decimal(5, 2)
+  average_score              Decimal?                    @db.Decimal(5, 2)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_at           DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([evaluation_date], map: "idx_portfolio_dates")
+  @@index([employee_id], map: "idx_portfolio_employee")
+  @@index([average_score], map: "idx_portfolio_scores")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_brownfield {
+  score_id                                                                                     Int                         @id @default(autoincrement())
+  employee_id                                                                                  Int?
+  initial_self_score                                                                           Decimal?                    @db.Decimal(5, 2)
+  concurrent_score                                                                             Decimal?                    @db.Decimal(5, 2)
+  delta_score                                                                                  Decimal?                    @db.Decimal(5, 2)
+  self_score                                                                                   Decimal?                    @db.Decimal(5, 2)
+  manager_score                                                                                Decimal?                    @db.Decimal(5, 2)
+  manager_comment                                                                              String?
+  challenge_score                                                                              Decimal?                    @db.Decimal(5, 2)
+  average_score                                                                                Decimal?                    @db.Decimal(5, 2)
+  evaluation_date                                                                              DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at                                                                                   DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_by                                                                             Int?
+  last_modified_at                                                                             DateTime?                   @default(now()) @db.Timestamp(6)
+  version                                                                                      Int?                        @default(1)
+  status                                                                                       String?                     @default("active") @db.VarChar(50)
+  employee_manager_hierarchy_portfolio_brownfield_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("portfolio_brownfield_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_portfolio_brownfield_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("portfolio_brownfield_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, evaluation_date], map: "idx_portfolio_brownfield_employee_date")
+  @@index([self_score, manager_score, challenge_score], map: "idx_portfolio_brownfield_scores")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_cloud_services {
+  score_id                                                                                         Int                         @id @default(autoincrement())
+  employee_id                                                                                      Int?
+  initial_self_score                                                                               Decimal?                    @db.Decimal(5, 2)
+  concurrent_score                                                                                 Decimal?                    @db.Decimal(5, 2)
+  delta_score                                                                                      Decimal?                    @db.Decimal(5, 2)
+  self_score                                                                                       Decimal?                    @db.Decimal(5, 2)
+  manager_score                                                                                    Decimal?                    @db.Decimal(5, 2)
+  manager_comment                                                                                  String?
+  challenge_score                                                                                  Decimal?                    @db.Decimal(5, 2)
+  average_score                                                                                    Decimal?                    @db.Decimal(5, 2)
+  evaluation_date                                                                                  DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at                                                                                       DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_by                                                                                 Int?
+  last_modified_at                                                                                 DateTime?                   @default(now()) @db.Timestamp(6)
+  version                                                                                          Int?                        @default(1)
+  status                                                                                           String?                     @default("active") @db.VarChar(50)
+  category                                                                                         prosper_category?
+  employee_manager_hierarchy_portfolio_cloud_services_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("portfolio_cloud_services_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_portfolio_cloud_services_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("portfolio_cloud_services_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, evaluation_date], map: "idx_portfolio_cloud_services_employee_date")
+  @@index([self_score, manager_score, challenge_score], map: "idx_portfolio_cloud_services_scores")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_design_success {
+  score_id                                                                                         Int                         @id @default(autoincrement())
+  employee_id                                                                                      Int?
+  initial_self_score                                                                               Decimal?                    @db.Decimal(5, 2)
+  concurrent_score                                                                                 Decimal?                    @db.Decimal(5, 2)
+  delta_score                                                                                      Decimal?                    @db.Decimal(5, 2)
+  self_score                                                                                       Decimal?                    @db.Decimal(5, 2)
+  manager_score                                                                                    Decimal?                    @db.Decimal(5, 2)
+  manager_comment                                                                                  String?
+  challenge_score                                                                                  Decimal?                    @db.Decimal(5, 2)
+  average_score                                                                                    Decimal?                    @db.Decimal(5, 2)
+  evaluation_date                                                                                  DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at                                                                                       DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_by                                                                                 Int?
+  last_modified_at                                                                                 DateTime?                   @default(now()) @db.Timestamp(6)
+  version                                                                                          Int?                        @default(1)
+  status                                                                                           String?                     @default("active") @db.VarChar(50)
+  category                                                                                         prosper_category?
+  employee_manager_hierarchy_portfolio_design_success_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("portfolio_design_success_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_portfolio_design_success_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("portfolio_design_success_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, evaluation_date], map: "idx_portfolio_design_success_employee_date")
+  @@index([self_score, manager_score, challenge_score], map: "idx_portfolio_design_success_scores")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_preferred_success {
+  score_id                                                                                            Int                         @id @default(autoincrement())
+  employee_id                                                                                         Int?
+  initial_self_score                                                                                  Decimal?                    @db.Decimal(5, 2)
+  concurrent_score                                                                                    Decimal?                    @db.Decimal(5, 2)
+  delta_score                                                                                         Decimal?                    @db.Decimal(5, 2)
+  self_score                                                                                          Decimal?                    @db.Decimal(5, 2)
+  manager_score                                                                                       Decimal?                    @db.Decimal(5, 2)
+  manager_comment                                                                                     String?
+  challenge_score                                                                                     Decimal?                    @db.Decimal(5, 2)
+  average_score                                                                                       Decimal?                    @db.Decimal(5, 2)
+  evaluation_date                                                                                     DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at                                                                                          DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_by                                                                                    Int?
+  last_modified_at                                                                                    DateTime?                   @default(now()) @db.Timestamp(6)
+  version                                                                                             Int?                        @default(1)
+  status                                                                                              String?                     @default("active") @db.VarChar(50)
+  employee_manager_hierarchy_portfolio_preferred_success_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("portfolio_preferred_success_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_portfolio_preferred_success_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("portfolio_preferred_success_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, evaluation_date], map: "idx_portfolio_preferred_success_employee_date")
+  @@index([self_score, manager_score, challenge_score], map: "idx_portfolio_preferred_success_scores")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model portfolio_premium_engagement {
+  score_id                                                                                             Int                         @id @default(autoincrement())
+  employee_id                                                                                          Int?
+  initial_self_score                                                                                   Decimal?                    @db.Decimal(5, 2)
+  concurrent_score                                                                                     Decimal?                    @db.Decimal(5, 2)
+  delta_score                                                                                          Decimal?                    @db.Decimal(5, 2)
+  self_score                                                                                           Decimal?                    @db.Decimal(5, 2)
+  manager_score                                                                                        Decimal?                    @db.Decimal(5, 2)
+  manager_comment                                                                                      String?
+  challenge_score                                                                                      Decimal?                    @db.Decimal(5, 2)
+  average_score                                                                                        Decimal?                    @db.Decimal(5, 2)
+  evaluation_date                                                                                      DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  created_at                                                                                           DateTime?                   @default(now()) @db.Timestamp(6)
+  last_modified_by                                                                                     Int?
+  last_modified_at                                                                                     DateTime?                   @default(now()) @db.Timestamp(6)
+  version                                                                                              Int?                        @default(1)
+  status                                                                                               String?                     @default("active") @db.VarChar(50)
+  category                                                                                             prosper_category?
+  employee_manager_hierarchy_portfolio_premium_engagement_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("portfolio_premium_engagement_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_portfolio_premium_engagement_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("portfolio_premium_engagement_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id, evaluation_date], map: "idx_portfolio_premium_engagement_employee_date")
+  @@index([self_score, manager_score, challenge_score], map: "idx_portfolio_premium_engagement_scores")
+}
+
+model portfolio_services {
+  service_id   Int    @id @default(autoincrement())
+  service_name String @unique @db.VarChar(100)
+}
+
+model portfolio_training {
+  score_id                   Int                         @id @default(autoincrement())
+  employee_id                Int?
+  evaluation_date            DateTime?                   @default(dbgenerated("CURRENT_DATE")) @db.Date
+  initial_self_score         Decimal?                    @db.Decimal(5, 2)
+  concurrent_score           Decimal?                    @db.Decimal(5, 2)
+  delta_score                Decimal?                    @db.Decimal(5, 2)
+  self_score                 Decimal?                    @db.Decimal(5, 2)
+  manager_score              Decimal?                    @db.Decimal(5, 2)
+  manager_comment            String?
+  challenge_score            Decimal?                    @db.Decimal(5, 2)
+  average_score              Decimal?                    @db.Decimal(5, 2)
+  training_type              String?                     @db.VarChar(50)
+  completion_status          String?                     @db.VarChar(20)
+  effectiveness_score        Decimal?                    @db.Decimal(5, 2)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([employee_id], map: "idx_portfolio_training_employee")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model program_retention_metrics {
+  metric_id           Int       @id @default(autoincrement())
+  year                Int?
+  total_previous_year Int?
+  total_retained      Int?
+  retention_rate      Decimal?  @db.Decimal(5, 2)
+  target_rate         Decimal?  @db.Decimal(5, 2)
+  analysis_date       DateTime? @db.Date
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model project_assignments {
+  assignment_id                                                                               Int                         @id @default(autoincrement())
+  employee_id                                                                                 Int?
+  project_name                                                                                String?                     @db.VarChar(100)
+  role                                                                                        String?                     @db.VarChar(50)
+  start_date                                                                                  DateTime?                   @db.Date
+  end_date                                                                                    DateTime?                   @db.Date
+  allocation_percentage                                                                       Decimal?                    @db.Decimal(5, 2)
+  impact_metrics                                                                              Json?
+  created_at                                                                                  DateTime?                   @default(now()) @db.Timestamp(6)
+  project_code                                                                                String?                     @db.VarChar(50)
+  billable                                                                                    Boolean?                    @default(true)
+  skills_utilized                                                                             String[]
+  assignment_type                                                                             String?                     @db.VarChar(50)
+  priority                                                                                    Int?
+  weekly_hours                                                                                Decimal?                    @db.Decimal(5, 2)
+  assignment_status                                                                           String?                     @default("active") @db.VarChar(50)
+  last_modified_by                                                                            Int?
+  last_modified_at                                                                            DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_project_assignments_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy? @relation("project_assignments_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_project_assignments_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("project_assignments_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([start_date, end_date], map: "idx_project_assignment_dates")
+  @@index([assignment_status, billable], map: "idx_project_assignment_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model prosper_score_metrics {
+  metric_id             Int       @id @default(autoincrement())
+  measurement_period    String?   @db.VarChar(50)
+  total_employees       Int?
+  improved_employees    Int?
+  improvement_threshold Decimal?  @default(10.00) @db.Decimal(5, 2)
+  achievement_rate      Decimal?  @db.Decimal(5, 2)
+  period_start          DateTime? @db.Date
+  period_end            DateTime? @db.Date
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model query_patterns {
+  pattern_id          BigInt   @id @default(autoincrement())
+  pattern_hash        String
+  query_pattern       String
+  first_seen          DateTime @default(now()) @db.Timestamp(6)
+  last_seen           DateTime @default(now()) @db.Timestamp(6)
+  execution_count     BigInt?  @default(1)
+  total_time          Decimal? @default(0) @db.Decimal
+  mean_time           Decimal? @default(0) @db.Decimal
+  min_time            Decimal? @db.Decimal
+  max_time            Decimal? @db.Decimal
+  stddev_time         Decimal? @db.Decimal
+  rows_processed      BigInt?  @default(0)
+  shared_blks_hit     BigInt?  @default(0)
+  shared_blks_read    BigInt?  @default(0)
+  temp_blks_written   BigInt?  @default(0)
+  optimization_status String?  @default("NONE")
+  metadata            Json?
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model rate_limit_tracking {
+  tracking_id     BigInt   @id @default(autoincrement())
+  identifier      String
+  action_type     String
+  timestamp       DateTime @default(now()) @db.Timestamp(6)
+  request_details Json?
+
+  @@unique([identifier, action_type, timestamp], map: "rate_limit_identifier_idx")
+  @@index([identifier, action_type, timestamp], map: "idx_rate_limit_lookup")
+}
+
+model relationship_assessment {
+  assessment_id              Int                         @id @default(autoincrement())
+  employee_id                Int?
+  stakeholder_type           String?                     @db.VarChar(50)
+  relationship_strength      Decimal?                    @db.Decimal(5, 2)
+  interaction_frequency      String?                     @db.VarChar(50)
+  last_interaction_date      DateTime?                   @db.Date
+  next_action_date           DateTime?                   @db.Date
+  notes                      String?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model relationship_improvement_metrics {
+  metric_id                  Int                         @id @default(autoincrement())
+  employee_id                Int?
+  measurement_period         String?                     @db.VarChar(50)
+  baseline_score             Decimal?                    @db.Decimal(5, 2)
+  current_score              Decimal?                    @db.Decimal(5, 2)
+  improvement_percentage     Decimal?                    @db.Decimal(5, 2)
+  stakeholder_category       String?                     @db.VarChar(50)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model report_definitions {
+  report_id            BigInt              @id @default(autoincrement())
+  report_name          String
+  report_type          String
+  description          String?
+  query_definition     Json
+  visualization_config Json?
+  schedule_config      Json?
+  is_active            Boolean?            @default(true)
+  created_at           DateTime            @default(now()) @db.Timestamp(6)
+  updated_at           DateTime            @default(now()) @db.Timestamp(6)
+  report_executions    report_executions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model report_executions {
+  execution_id       BigInt              @id @default(autoincrement())
+  report_id          BigInt?
+  execution_start    DateTime            @default(now()) @db.Timestamp(6)
+  execution_end      DateTime?           @db.Timestamp(6)
+  status             String              @default("RUNNING")
+  result_data        Json?
+  visualization_data Json?
+  execution_metadata Json?
+  report_definitions report_definitions? @relation(fields: [report_id], references: [report_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model report_history {
+  report_id        BigInt            @id @default(autoincrement())
+  template_id      BigInt?
+  generation_start DateTime          @default(now()) @db.Timestamp(6)
+  generation_end   DateTime?         @db.Timestamp(6)
+  status           String            @default("IN_PROGRESS")
+  report_data      Json?
+  report_metadata  Json?
+  report_templates report_templates? @relation(fields: [template_id], references: [template_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model report_templates {
+  template_id     BigInt           @id @default(autoincrement())
+  template_name   String
+  template_type   String
+  template_config Json
+  is_active       Boolean?         @default(true)
+  created_at      DateTime         @default(now()) @db.Timestamp(6)
+  updated_at      DateTime         @default(now()) @db.Timestamp(6)
+  report_history  report_history[]
+}
+
+model resource_allocation {
+  allocation_id                                                                               Int                           @id @default(autoincrement())
+  employee_id                                                                                 Int?
+  project_id                                                                                  Int?
+  allocation_percentage                                                                       Decimal?                      @db.Decimal(5, 2)
+  start_date                                                                                  DateTime?                     @db.Date
+  end_date                                                                                    DateTime?                     @db.Date
+  role_type                                                                                   String?                       @db.VarChar(50)
+  skills_utilized                                                                             Json[]
+  created_at                                                                                  DateTime?                     @default(now()) @db.Timestamp(6)
+  allocation_type                                                                             String?                       @db.VarChar(50)
+  billing_type                                                                                String?                       @db.VarChar(50)
+  cost_center                                                                                 String?                       @db.VarChar(100)
+  allocation_status                                                                           String?                       @default("active") @db.VarChar(50)
+  weekly_capacity                                                                             Int?                          @default(40)
+  actual_hours                                                                                Decimal?                      @db.Decimal(5, 2)
+  variance_explanation                                                                        String?
+  last_modified_by                                                                            Int?
+  last_modified_at                                                                            DateTime?                     @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_resource_allocation_employee_idToemployee_manager_hierarchy      employee_manager_hierarchy?   @relation("resource_allocation_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_resource_allocation_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy?   @relation("resource_allocation_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  resource_allocation_history                                                                 resource_allocation_history[]
+}
+
+model resource_allocation_history {
+  history_id                                                                                     Int                         @id @default(autoincrement())
+  allocation_id                                                                                  Int?
+  employee_id                                                                                    Int?
+  change_date                                                                                    DateTime?                   @default(now()) @db.Timestamp(6)
+  old_allocation_percentage                                                                      Decimal?                    @db.Decimal(5, 2)
+  new_allocation_percentage                                                                      Decimal?                    @db.Decimal(5, 2)
+  old_status                                                                                     String?                     @db.VarChar(50)
+  new_status                                                                                     String?                     @db.VarChar(50)
+  changed_by                                                                                     Int?
+  change_reason                                                                                  String?
+  resource_allocation                                                                            resource_allocation?        @relation(fields: [allocation_id], references: [allocation_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_resource_allocation_history_changed_byToemployee_manager_hierarchy  employee_manager_hierarchy? @relation("resource_allocation_history_changed_byToemployee_manager_hierarchy", fields: [changed_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_resource_allocation_history_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("resource_allocation_history_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model review_cycles {
+  cycle_id          Int       @id @default(autoincrement())
+  cycle_name        String?   @db.VarChar(100)
+  start_date        DateTime? @db.Date
+  end_date          DateTime? @db.Date
+  status            String?   @db.VarChar(50)
+  participants      Json?
+  completion_status Json?
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model review_templates {
+  template_id        Int       @id @default(autoincrement())
+  template_name      String?   @db.VarChar(100)
+  category           String?   @db.VarChar(50)
+  sections           Json[]
+  scoring_criteria   Json?
+  required_approvers Int[]
+  active             Boolean?  @default(true)
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model satisfaction_survey_metrics {
+  metric_id             Int       @id @default(autoincrement())
+  survey_period         String?   @db.VarChar(50)
+  survey_date           DateTime? @db.Date
+  total_respondents     Int?
+  average_score         Decimal?  @db.Decimal(3, 2)
+  target_score          Decimal?  @default(4.00) @db.Decimal(3, 2)
+  response_distribution Json?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model scheduled_jobs {
+  job_id          BigInt                   @id @default(autoincrement())
+  job_name        String
+  job_type        String
+  description     String?
+  schedule_type   String
+  cron_expression String?
+  interval_value  Unsupported("interval")?
+  target_type     String
+  target_id       BigInt
+  parameters      Json?                    @default("{}")
+  is_active       Boolean?                 @default(true)
+  last_run        DateTime?                @db.Timestamp(6)
+  next_run        DateTime?                @db.Timestamp(6)
+  created_at      DateTime                 @default(now()) @db.Timestamp(6)
+  updated_at      DateTime                 @default(now()) @db.Timestamp(6)
+  job_executions  job_executions[]
+}
+
+model schema_versions {
+  version_id      BigInt       @id @default(autoincrement())
+  version_number  String
+  is_current      Boolean?     @default(false)
+  deployed_at     DateTime     @default(now()) @db.Timestamp(6)
+  deployment_id   BigInt?
+  schema_snapshot Json?
+  metadata        Json?
+  deployments     deployments? @relation(fields: [deployment_id], references: [deployment_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model score_history {
+  history_id                                                                       Int                         @id @default(autoincrement())
+  employee_id                                                                      Int?
+  category                                                                         String?                     @db.VarChar(50)
+  score_type                                                                       String?                     @db.VarChar(50)
+  old_value                                                                        Decimal?                    @db.Decimal(5, 2)
+  new_value                                                                        Decimal?                    @db.Decimal(5, 2)
+  change_date                                                                      DateTime?                   @db.Timestamp(6)
+  changed_by                                                                       Int?
+  reason                                                                           String?
+  created_at                                                                       DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_score_history_changed_byToemployee_manager_hierarchy  employee_manager_hierarchy? @relation("score_history_changed_byToemployee_manager_hierarchy", fields: [changed_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_score_history_employee_idToemployee_manager_hierarchy employee_manager_hierarchy? @relation("score_history_employee_idToemployee_manager_hierarchy", fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model security_events {
+  event_id      BigInt   @id @default(autoincrement())
+  event_type    String
+  severity      String
+  user_id       Int?
+  ip_address    String?  @db.Inet
+  event_details Json?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  users         users?   @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model security_monitoring_log {
+  log_id             BigInt                  @id @default(autoincrement())
+  execution_time     DateTime                @db.Timestamp(6)
+  lookback_hours     Int
+  alert_threshold    Int
+  execution_duration Unsupported("interval")
+  findings           Json
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model security_notifications {
+  notification_id     BigInt    @id @default(autoincrement())
+  notification_type   String
+  severity            String
+  created_at          DateTime  @default(now()) @db.Timestamp(6)
+  processed_at        DateTime? @db.Timestamp(6)
+  notification_status String    @default("PENDING")
+  recipient_list      Json?
+  message_content     Json?
+
+  @@index([notification_status, severity, created_at], map: "idx_security_notifications_status_severity")
+}
+
+model skill_requirements {
+  requirement_id           Int       @id @default(autoincrement())
+  role_name                String?   @db.VarChar(100)
+  category                 String?   @db.VarChar(50)
+  required_skills          Json?
+  minimum_proficiency      Decimal?  @db.Decimal(5, 2)
+  preferred_certifications String[]
+  experience_level         String?   @db.VarChar(50)
+  created_at               DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model skills_inventory {
+  skill_id                   Int                         @id @default(autoincrement())
+  employee_id                Int?
+  category                   String?                     @db.VarChar(50)
+  skill_name                 String?                     @db.VarChar(100)
+  proficiency_level          Decimal?                    @db.Decimal(5, 2)
+  last_assessed              DateTime?                   @db.Date
+  certification_proof        String[]
+  experience_months          Int?
+  last_used_date             DateTime?                   @db.Date
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model stakeholder_relationship_history {
+  history_id                 Int                         @id @default(autoincrement())
+  employee_id                Int?
+  stakeholder_id             Int?
+  relationship_type          String?                     @db.VarChar(50)
+  quality_score              Decimal?                    @db.Decimal(3, 2)
+  interaction_date           DateTime?                   @db.Date
+  notes                      String?
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model system_configurations {
+  config_id             BigInt                  @id @default(autoincrement())
+  config_name           String
+  config_value          String?
+  config_type           String
+  is_active             Boolean?                @default(true)
+  description           String?
+  validation_rules      Json?
+  last_modified         DateTime                @default(now()) @db.Timestamp(6)
+  modified_by           String
+  configuration_history configuration_history[]
+}
+
+model system_integration_mapping {
+  mapping_id          Int      @id @default(autoincrement())
+  source_system       String?  @db.VarChar(50)
+  source_field        String?  @db.VarChar(100)
+  target_table        String?  @db.VarChar(100)
+  target_field        String?  @db.VarChar(100)
+  transformation_rule Json?
+  is_active           Boolean? @default(true)
+}
+
+model system_integrations {
+  integration_id   Int       @id @default(autoincrement())
+  system_name      String?   @db.VarChar(100)
+  integration_type String?   @db.VarChar(50)
+  configuration    Json?
+  status           String?   @db.VarChar(50)
+  last_sync        DateTime? @db.Timestamp(6)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model system_metrics_history {
+  metric_id       BigInt   @id @default(autoincrement())
+  metric_name     String
+  metric_value    Decimal  @db.Decimal
+  metric_type     String
+  collection_time DateTime @default(now()) @db.Timestamp(6)
+  granularity     String
+  dimensions      Json?
+}
+
+model system_settings {
+  setting_id                 Int                         @id @default(autoincrement())
+  setting_name               String?                     @db.VarChar(100)
+  setting_value              Json?
+  category                   String?                     @db.VarChar(50)
+  description                String?
+  last_modified              DateTime?                   @db.Timestamp(6)
+  modified_by                Int?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model team_collaboration {
+  collaboration_id    Int             @id @default(autoincrement())
+  team_id             Int?
+  project_id          Int?
+  collaboration_type  String?         @db.VarChar(50)
+  effectiveness_score Decimal?        @db.Decimal(5, 2)
+  challenges          String[]
+  success_factors     Json?
+  created_at          DateTime?       @default(now()) @db.Timestamp(6)
+  team_structure      team_structure? @relation(fields: [team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model team_dynamics {
+  dynamics_id               Int       @id @default(autoincrement())
+  team_id                   Int?
+  assessment_date           DateTime? @db.Date
+  collaboration_score       Decimal?  @db.Decimal(5, 2)
+  communication_score       Decimal?  @db.Decimal(5, 2)
+  innovation_score          Decimal?  @db.Decimal(5, 2)
+  conflict_resolution_score Decimal?  @db.Decimal(5, 2)
+  team_metrics              Json?
+  interaction_patterns      Json[]
+  created_at                DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model team_structure {
+  team_id                                                                                Int                         @id @default(autoincrement())
+  team_name                                                                              String?                     @db.VarChar(100)
+  manager_id                                                                             Int?
+  department_id                                                                          Int?
+  team_type                                                                              String?                     @db.VarChar(50)
+  formation_date                                                                         DateTime?                   @db.Date
+  status                                                                                 String?                     @db.VarChar(50)
+  team_metrics                                                                           Json?
+  created_at                                                                             DateTime?                   @default(now()) @db.Timestamp(6)
+  team_size                                                                              Int?
+  team_level                                                                             String?                     @db.VarChar(50)
+  parent_team_id                                                                         Int?
+  team_objectives                                                                        Json?
+  budget_center                                                                          String?                     @db.VarChar(100)
+  last_modified_by                                                                       Int?
+  last_modified_at                                                                       DateTime?                   @default(now()) @db.Timestamp(6)
+  capacity_planning                                                                      capacity_planning[]
+  team_collaboration                                                                     team_collaboration[]
+  department                                                                             department?                 @relation(fields: [department_id], references: [department_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_team_structure_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("team_structure_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_team_structure_manager_idToemployee_manager_hierarchy       employee_manager_hierarchy? @relation("team_structure_manager_idToemployee_manager_hierarchy", fields: [manager_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  team_structure                                                                         team_structure?             @relation("team_structureToteam_structure", fields: [parent_team_id], references: [team_id], onDelete: NoAction, onUpdate: NoAction)
+  other_team_structure                                                                   team_structure[]            @relation("team_structureToteam_structure")
+
+  @@index([parent_team_id, team_id], map: "idx_team_hierarchy")
+}
+
+model test_cases {
+  test_id         BigInt                   @id @default(autoincrement())
+  suite_id        BigInt?
+  test_name       String
+  test_query      String
+  expected_result Json
+  timeout         Unsupported("interval")? @default(dbgenerated("'00:00:30'::interval"))
+  retry_count     Int?                     @default(0)
+  is_active       Boolean?                 @default(true)
+  tags            String[]
+  test_suites     test_suites?             @relation(fields: [suite_id], references: [suite_id], onDelete: NoAction, onUpdate: NoAction)
+  test_executions test_executions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model test_executions {
+  execution_id      BigInt      @id @default(autoincrement())
+  test_id           BigInt?
+  execution_start   DateTime    @default(now()) @db.Timestamp(6)
+  execution_end     DateTime?   @db.Timestamp(6)
+  status            String
+  actual_result     Json?
+  execution_details Json?
+  test_cases        test_cases? @relation(fields: [test_id], references: [test_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model test_suites {
+  suite_id        BigInt       @id @default(autoincrement())
+  suite_name      String
+  suite_type      String
+  is_active       Boolean?     @default(true)
+  execution_order Int?
+  dependencies    Json?
+  created_at      DateTime     @default(now()) @db.Timestamp(6)
+  test_cases      test_cases[]
+}
+
+model training_records {
+  training_id                Int                         @id @default(autoincrement())
+  employee_id                Int?
+  training_name              String?                     @db.VarChar(100)
+  category                   String?                     @db.VarChar(50)
+  completion_date            DateTime?                   @db.Date
+  score                      Decimal?                    @db.Decimal(5, 2)
+  duration_hours             Int?
+  effectiveness_rating       Decimal?                    @db.Decimal(5, 2)
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [employee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model trend_analysis {
+  analysis_id          Int       @id @default(autoincrement())
+  metric_type          String?   @db.VarChar(50)
+  period_start         DateTime? @db.Date
+  period_end           DateTime? @db.Date
+  trend_direction      String?   @db.VarChar(20)
+  change_percentage    Decimal?  @db.Decimal(5, 2)
+  contributing_factors Json?
+  recommendations      String?
+}
+
+model workflow_instances {
+  instance_id                                                                                Int                         @id @default(autoincrement())
+  workflow_id                                                                                Int?
+  initiator_id                                                                               Int?
+  current_step                                                                               Int?
+  status                                                                                     String?                     @db.VarChar(50)
+  start_date                                                                                 DateTime?                   @db.Timestamp(6)
+  completion_date                                                                            DateTime?                   @db.Timestamp(6)
+  created_at                                                                                 DateTime?                   @default(now()) @db.Timestamp(6)
+  priority                                                                                   String?                     @default("medium") @db.VarChar(20)
+  due_date                                                                                   DateTime?                   @db.Timestamp(6)
+  last_action_date                                                                           DateTime?                   @db.Timestamp(6)
+  current_assignee                                                                           Int?
+  escalation_level                                                                           Int?                        @default(0)
+  workflow_data                                                                              Json?
+  step_history                                                                               Json[]
+  last_modified_by                                                                           Int?
+  last_modified_at                                                                           DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy_workflow_instances_current_assigneeToemployee_manager_hierarchy employee_manager_hierarchy? @relation("workflow_instances_current_assigneeToemployee_manager_hierarchy", fields: [current_assignee], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_workflow_instances_initiator_idToemployee_manager_hierarchy     employee_manager_hierarchy? @relation("workflow_instances_initiator_idToemployee_manager_hierarchy", fields: [initiator_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  employee_manager_hierarchy_workflow_instances_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("workflow_instances_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_definitions                                                                       workflow_definitions?       @relation(fields: [workflow_id], references: [workflow_id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_step_history                                                                      workflow_step_history[]
+}
+
+model workflow_step_history {
+  history_id                 Int                         @id @default(autoincrement())
+  instance_id                Int?
+  step_number                Int?
+  step_name                  String?                     @db.VarChar(100)
+  assignee_id                Int?
+  action_taken               String?                     @db.VarChar(50)
+  action_date                DateTime?                   @default(now()) @db.Timestamp(6)
+  comments                   String?
+  time_spent                 Unsupported("interval")?
+  created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
+  employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [assignee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_instances         workflow_instances?         @relation(fields: [instance_id], references: [instance_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model workflow_step_logs {
+  log_id              BigInt               @id @default(autoincrement())
+  execution_id        BigInt?
+  step_number         Int
+  step_name           String
+  started_at          DateTime             @default(now()) @db.Timestamp(6)
+  completed_at        DateTime?            @db.Timestamp(6)
+  status              String               @default("RUNNING")
+  output_data         Json?
+  error_details       Json?
+  workflow_executions workflow_executions? @relation(fields: [execution_id], references: [execution_id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+enum prosper_category {
+  PORTFOLIO
+  RELATIONSHIP
+  OPERATIONS
+  SUCCESS
+  PRODUCTIVITY
+  ENABLEMENT
+  RESPONSIBILITY
+}
+
+// Add these models before workflow_instances
+
+model workflow_executions {
+  execution_id         BigInt                @id @default(autoincrement())
+  workflow_id          BigInt?
+  trigger_source       String
+  started_at           DateTime              @default(now()) @db.Timestamp(6)
+  completed_at         DateTime?             @db.Timestamp(6)
+  status               String                @default("RUNNING")
+  execution_data       Json?
+  error_details        Json?
+  automation_workflows automation_workflows? @relation(fields: [workflow_id], references: [workflow_id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_step_logs   workflow_step_logs[]
+}
+
+model workflow_definitions {
+  workflow_id        Int                  @id @default(autoincrement())
+  workflow_name      String?              @db.VarChar(100)
+  category           String?              @db.VarChar(50)
+  steps              Json[]
+  approvers          Json?
+  sla_hours          Int?
+  active             Boolean?             @default(true)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  workflow_type      String?              @db.VarChar(50)
+  workflow_instances workflow_instances[]
 }
