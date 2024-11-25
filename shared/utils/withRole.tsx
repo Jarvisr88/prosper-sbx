@@ -1,32 +1,23 @@
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/router';
-import { useEffect } from 'react';
-import { ComponentType } from 'react';
+import { useSession } from "next-auth/react";
 
-export function withRole<P extends JSX.IntrinsicAttributes>(
-  WrappedComponent: ComponentType<P>,
-  allowedRoles: string[]
-) {
-  return function WithRoleComponent(props: P) {
-    const { data: session, status } = useSession();
-    const router = useRouter();
+export function withRole(allowedRoles: string[]) {
+  return function (WrappedComponent: React.ComponentType) {
+    return function WithRoleWrapper(
+      props: React.ComponentProps<typeof WrappedComponent>,
+    ) {
+      const { data: session } = useSession();
 
-    useEffect(() => {
-      if (status === 'unauthenticated') {
-        router.replace('/auth/signin');
-      } else if (session?.user && !allowedRoles.includes(session.user.role)) {
-        router.replace('/unauthorized');
+      if (!session?.user?.role) {
+        // Handle no role
+        return null;
       }
-    }, [status, session, router]);
 
-    if (status === 'loading') {
-      return <div>Loading...</div>;
-    }
+      if (!allowedRoles.includes(session.user.role)) {
+        // Handle unauthorized
+        return null;
+      }
 
-    if (!session || !allowedRoles.includes(session.user.role)) {
-      return null;
-    }
-
-    return <WrappedComponent {...props} />;
+      return <WrappedComponent {...props} />;
+    };
   };
-} 
+}

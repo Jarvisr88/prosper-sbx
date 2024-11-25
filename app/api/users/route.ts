@@ -1,195 +1,213 @@
-import { NextResponse } from 'next/server'
-import prisma from '@/server/db/prisma'
-import { ApiResponse } from '@/shared/types/common'
+import { NextResponse } from "next/server";
+import prisma from "@/server/db/prisma";
+import { ApiResponse } from "@/shared/types/common";
+import { createHash } from "crypto";
 
 type UserResponse = {
-  id: string
-  email: string | null
-  name: string | null
-  role: string
-  createdAt: Date
-  updatedAt: Date
-  isActive: boolean
-}
+  user_id: number;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean | null;
+  last_login: Date | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+};
 
 type CreateUserBody = {
-  email: string
-  name?: string
-  role?: string
-}
+  email: string;
+  name?: string;
+  role?: string;
+};
 
 type UpdateUserBody = {
-  email?: string
-  name?: string
-  role?: string
-  isActive?: boolean
-}
+  email?: string;
+  name?: string;
+  role?: string;
+  is_active?: boolean;
+};
 
 // GET all users
-export async function GET(): Promise<NextResponse<ApiResponse<UserResponse[]>>> {
+export async function GET(): Promise<
+  NextResponse<ApiResponse<UserResponse[]>>
+> {
   try {
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       select: {
-        id: true,
+        user_id: true,
+        username: true,
         email: true,
-        name: true,
         role: true,
-        createdAt: true,
-        updatedAt: true,
-        isActive: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
       },
-    })
+    });
 
     return NextResponse.json({
       data: users,
       status: 200,
-    })
+    });
   } catch (error) {
-    console.error('Users fetch error:', error)
+    console.error("Users fetch error:", error);
     return NextResponse.json(
       {
-        error: 'Failed to fetch users',
+        error: "Failed to fetch users",
         status: 500,
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
 // POST create user
 export async function POST(
-  request: Request
+  request: Request,
 ): Promise<NextResponse<ApiResponse<UserResponse>>> {
   try {
-    const body: CreateUserBody = await request.json()
+    const body: CreateUserBody = await request.json();
 
-    const user = await prisma.user.create({
+    // Generate salt and hash for new user
+    const salt = createHash("sha256")
+      .update(Math.random().toString())
+      .digest("hex");
+    const password_hash = createHash("sha256")
+      .update(salt + "default-password")
+      .digest("hex");
+
+    const user = await prisma.users.create({
       data: {
         email: body.email,
-        name: body.name,
-        role: body.role || 'USER',
+        username: body.name || "",
+        role: body.role || "USER",
+        password_hash,
+        salt,
       },
       select: {
-        id: true,
+        user_id: true,
+        username: true,
         email: true,
-        name: true,
         role: true,
-        createdAt: true,
-        updatedAt: true,
-        isActive: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
       },
-    })
+    });
 
     return NextResponse.json({
       data: user,
       status: 201,
-    })
+    });
   } catch (error) {
-    console.error('User creation error:', error)
+    console.error("User creation error:", error);
     return NextResponse.json(
       {
-        error: 'Failed to create user',
+        error: "Failed to create user",
         status: 500,
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
 // PUT update user
 export async function PUT(
-  request: Request
+  request: Request,
 ): Promise<NextResponse<ApiResponse<UserResponse>>> {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-    
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
     if (!id) {
       return NextResponse.json(
         {
-          error: 'User ID is required',
+          error: "User ID is required",
           status: 400,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
-    const body: UpdateUserBody = await request.json()
+    const body: UpdateUserBody = await request.json();
 
-    const user = await prisma.user.update({
-      where: { id },
+    const user = await prisma.users.update({
+      where: { user_id: parseInt(id, 10) },
       data: body,
       select: {
-        id: true,
+        user_id: true,
+        username: true,
         email: true,
-        name: true,
         role: true,
-        createdAt: true,
-        updatedAt: true,
-        isActive: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
       },
-    })
+    });
 
     return NextResponse.json({
       data: user,
       status: 200,
-    })
+    });
   } catch (error) {
-    console.error('User update error:', error)
+    console.error("User update error:", error);
     return NextResponse.json(
       {
-        error: 'Failed to update user',
+        error: "Failed to update user",
         status: 500,
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
 
 // DELETE user
 export async function DELETE(
-  request: Request
+  request: Request,
 ): Promise<NextResponse<ApiResponse<UserResponse>>> {
   try {
-    const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
-    
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
     if (!id) {
       return NextResponse.json(
         {
-          error: 'User ID is required',
+          error: "User ID is required",
           status: 400,
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
+    const user = await prisma.users.update({
+      where: { user_id: parseInt(id, 10) },
+      data: { is_active: false },
       select: {
-        id: true,
+        user_id: true,
+        username: true,
         email: true,
-        name: true,
         role: true,
-        createdAt: true,
-        updatedAt: true,
-        isActive: true,
+        is_active: true,
+        last_login: true,
+        created_at: true,
+        updated_at: true,
       },
-    })
+    });
 
     return NextResponse.json({
       data: user,
       status: 200,
-    })
+    });
   } catch (error) {
-    console.error('User deletion error:', error)
+    console.error("User deletion error:", error);
     return NextResponse.json(
       {
-        error: 'Failed to delete user',
+        error: "Failed to delete user",
         status: 500,
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
-} 
+}

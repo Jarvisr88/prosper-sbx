@@ -1,6 +1,7 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import prisma from '../db/prisma';
-import { Prisma, User } from '@prisma/client';
+import { NextApiRequest, NextApiResponse } from "next";
+import prisma from "../db/prisma";
+import { Prisma } from "@prisma/client";
+import { randomBytes, createHash } from "crypto";
 
 type ApiResponse<T> = {
   success: boolean;
@@ -8,104 +9,110 @@ type ApiResponse<T> = {
   error?: string;
 };
 
+// Define proper types based on Prisma schema
+type PrismaUser = Prisma.usersGetPayload<{
+  select: typeof userSelect;
+}>;
+
+const userSelect = {
+  user_id: true,
+  username: true,
+  email: true,
+  role: true,
+  is_active: true,
+  last_login: true,
+  created_at: true,
+  updated_at: true,
+  password_hash: true,
+  salt: true,
+} as const;
+
 export class UserController {
-  private readonly userSelect = {
-    id: true,
-    email: true,
-    name: true,
-    role: true,
-    employeeId: true,
-    isActive: true,
-    lastLogin: true,
-    createdAt: true,
-    updatedAt: true,
-    emailVerified: true,
-    image: true,
-  } as const;
+  private readonly userSelect = userSelect;
 
   async getUsers(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<User[]>>
+    res: NextApiResponse<ApiResponse<PrismaUser[]>>,
   ) {
     try {
-      const users = await prisma.user.findMany({
+      const users = await prisma.users.findMany({
         select: this.userSelect,
       });
       return res.status(200).json({ success: true, data: users });
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error("Error fetching users:", error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to fetch users',
+        error: "Failed to fetch users",
       });
     }
   }
 
   async getUserById(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<User>>
+    res: NextApiResponse<ApiResponse<PrismaUser>>,
   ) {
     try {
       const { id } = req.query;
 
-      if (!id || typeof id !== 'string') {
+      if (!id || typeof id !== "string") {
         return res.status(400).json({
           success: false,
-          error: 'Invalid user ID',
+          error: "Invalid user ID",
         });
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id },
+      const user = await prisma.users.findUnique({
+        where: { user_id: parseInt(id, 10) },
         select: this.userSelect,
       });
 
       if (!user) {
         return res.status(404).json({
           success: false,
-          error: 'User not found',
+          error: "User not found",
         });
       }
 
       return res.status(200).json({ success: true, data: user });
     } catch (error) {
-      console.error('Error fetching user:', error);
+      console.error("Error fetching user:", error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to fetch user',
+        error: "Failed to fetch user",
       });
     }
   }
 
   async createUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<User>>
+    res: NextApiResponse<ApiResponse<PrismaUser>>,
   ) {
     try {
-      const { 
-        email, 
-        name, 
-        role = 'USER',
-        employeeId,
-        isActive = true 
-      } = req.body;
+      const { email, username, role = "USER", is_active = true } = req.body;
 
       if (!email) {
         return res.status(400).json({
           success: false,
-          error: 'Email is required',
+          error: "Email is required",
         });
       }
 
-      const userData: Prisma.UserCreateInput = {
+      const salt = randomBytes(16).toString("hex");
+      const password_hash = createHash("sha256")
+        .update(salt + "default-password")
+        .digest("hex");
+
+      const userData: Prisma.usersCreateInput = {
         email,
-        name,
+        username,
         role,
-        employeeId,
-        isActive,
+        is_active,
+        salt,
+        password_hash,
       };
 
-      const user = await prisma.user.create({
+      const user = await prisma.users.create({
         data: userData,
         select: this.userSelect,
       });
@@ -113,62 +120,46 @@ export class UserController {
       return res.status(201).json({ success: true, data: user });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2002') {
+        if (error.code === "P2002") {
           return res.status(400).json({
             success: false,
-            error: 'A user with this email already exists',
-          });
-        }
-        if (error.code === 'P2003') {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid employee ID provided',
+            error: "A user with this email already exists",
           });
         }
       }
-      console.error('Error creating user:', error);
+      console.error("Error creating user:", error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to create user',
+        error: "Failed to create user",
       });
     }
   }
 
   async updateUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<User>>
+    res: NextApiResponse<ApiResponse<PrismaUser>>,
   ) {
     try {
       const { id } = req.query;
-      const {
-        email,
-        name,
-        role,
-        employeeId,
-        isActive,
-        lastLogin,
-        emailVerified
-      } = req.body;
+      const { email, username, role, is_active, last_login } = req.body;
 
-      if (!id || typeof id !== 'string') {
+      if (!id || typeof id !== "string") {
         return res.status(400).json({
           success: false,
-          error: 'Invalid user ID',
+          error: "Invalid user ID",
         });
       }
 
-      const updateData: Prisma.UserUpdateInput = {};
-      
-      if (email !== undefined) updateData.email = email;
-      if (name !== undefined) updateData.name = name;
-      if (role !== undefined) updateData.role = role;
-      if (employeeId !== undefined) updateData.employeeId = employeeId;
-      if (isActive !== undefined) updateData.isActive = isActive;
-      if (lastLogin !== undefined) updateData.lastLogin = lastLogin;
-      if (emailVerified !== undefined) updateData.emailVerified = emailVerified;
+      const updateData: Prisma.usersUpdateInput = {};
 
-      const user = await prisma.user.update({
-        where: { id },
+      if (email !== undefined) updateData.email = email;
+      if (username !== undefined) updateData.username = username;
+      if (role !== undefined) updateData.role = role;
+      if (is_active !== undefined) updateData.is_active = is_active;
+      if (last_login !== undefined) updateData.last_login = last_login;
+
+      const user = await prisma.users.update({
+        where: { user_id: parseInt(id, 10) },
         data: updateData,
         select: this.userSelect,
       });
@@ -176,66 +167,60 @@ export class UserController {
       return res.status(200).json({ success: true, data: user });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+        if (error.code === "P2025") {
           return res.status(404).json({
             success: false,
-            error: 'User not found',
+            error: "User not found",
           });
         }
-        if (error.code === 'P2002') {
+        if (error.code === "P2002") {
           return res.status(400).json({
             success: false,
-            error: 'Email already in use',
-          });
-        }
-        if (error.code === 'P2003') {
-          return res.status(400).json({
-            success: false,
-            error: 'Invalid employee ID provided',
+            error: "Email already in use",
           });
         }
       }
-      console.error('Error updating user:', error);
+      console.error("Error updating user:", error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to update user',
+        error: "Failed to update user",
       });
     }
   }
 
   async deleteUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<void>>
+    res: NextApiResponse<ApiResponse<void>>,
   ) {
     try {
       const { id } = req.query;
 
-      if (!id || typeof id !== 'string') {
+      if (!id || typeof id !== "string") {
         return res.status(400).json({
           success: false,
-          error: 'Invalid user ID',
+          error: "Invalid user ID",
         });
       }
 
-      await prisma.user.delete({
-        where: { id },
+      await prisma.users.delete({
+        where: { user_id: parseInt(id, 10) },
       });
 
       return res.status(200).json({ success: true });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2025') {
+        if (error.code === "P2025") {
           return res.status(404).json({
             success: false,
-            error: 'User not found',
+            error: "User not found",
           });
         }
       }
-      console.error('Error deleting user:', error);
+      console.error("Error deleting user:", error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to delete user',
+        error: "Failed to delete user",
       });
     }
   }
-} 
+}

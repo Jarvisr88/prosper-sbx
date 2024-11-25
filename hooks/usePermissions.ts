@@ -1,26 +1,27 @@
-import { useSession } from 'next-auth/react'
-import { Permission } from '@/types/auth/permissions'
+import { useSession } from "next-auth/react";
+import { Permission } from "@/types/auth/permissions";
 
 export function usePermissions() {
-  const { data: session } = useSession()
-  const userRole = session?.user?.role || 'user'
+  const { data: session } = useSession();
 
-  const hasPermission = (permission: Permission): boolean => {
-    return userRole === 'admin'
-  }
+  const hasAllPermissions = (requiredPermissions: Permission[]) => {
+    if (!session?.user?.permissions) return false;
+    const userPermissions = session.user.permissions;
+    return requiredPermissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
+  };
 
-  const hasAllPermissions = (permissions: Permission[]): boolean => {
-    return permissions.every(hasPermission)
-  }
-
-  const hasAnyPermission = (permissions: Permission[]): boolean => {
-    return permissions.some(hasPermission)
-  }
+  const hasAnyPermission = (requiredPermissions: Permission[]) => {
+    if (!session?.user?.permissions) return false;
+    const userPermissions = session.user.permissions;
+    return requiredPermissions.some((permission) =>
+      userPermissions.includes(permission),
+    );
+  };
 
   return {
-    hasPermission,
     hasAllPermissions,
     hasAnyPermission,
-    userRole
-  }
-} 
+  };
+}
