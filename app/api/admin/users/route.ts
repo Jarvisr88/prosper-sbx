@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { withProtectedRoute } from '@/middleware/auth/withProtectedRoute'
-import { Permission } from '@/types/auth/permissions'
-import { prisma } from '@/lib/prisma'
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-async function handler(req: NextRequest) {
-  if (req.method === 'GET') {
+export async function GET() {
+  try {
     const users = await prisma.users.findMany({
       select: {
         user_id: true,
@@ -12,20 +10,17 @@ async function handler(req: NextRequest) {
         email: true,
         role: true,
         is_active: true,
-        last_login: true
-      }
-    })
-    
-    return NextResponse.json({ users })
+        last_login: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+    return NextResponse.json({ users });
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch users" },
+      { status: 500 }
+    );
   }
-  
-  return NextResponse.json(
-    { error: 'Method not allowed' },
-    { status: 405 }
-  )
 }
-
-export const GET = withProtectedRoute(handler, {
-  permissions: [Permission.READ_USER],
-  requireAll: true
-}) 

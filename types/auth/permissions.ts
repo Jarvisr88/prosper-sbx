@@ -19,6 +19,7 @@ export enum Permission {
   MANAGE_SECURITY = "manage:security",
   MANAGE_WORKFLOWS = "manage:workflows",
   ADMIN = "admin",
+  VIEW_SECURITY_EVENTS = "VIEW_SECURITY_EVENTS",
 }
 
 export interface RolePermissions {

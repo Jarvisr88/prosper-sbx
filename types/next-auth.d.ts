@@ -4,22 +4,19 @@ import { Permission } from "./auth/permissions";
 declare module "next-auth" {
   interface Session {
     user: {
-      permissions: Permission[] | undefined;
-      id?: string;
-      email?: string | null;
-      name?: string | null;
-      image?: string | null;
-      role?: string;
-    };
+      id: string;
+      role: string;
+      username?: string;
+      is_active?: boolean;
+      user_id?: number;
+    } & DefaultSession["user"];
   }
 
   interface User {
-    id: string;
-    email: string;
-    name?: string;
-    image?: string;
     role: string;
-    permissions: Permission[];
+    username?: string;
+    is_active?: boolean;
+    user_id?: number;
   }
 
   interface AdapterUser {

@@ -10,7 +10,6 @@ import {
   SecuritySeverity,
   SecurityEventDetails,
 } from "../../types/security";
-import { ValidationService } from "./validation.service";
 
 export class AuthService {
   private generateHash(password: string, salt: string): string {
@@ -27,7 +26,7 @@ export class AuthService {
     userId: number,
     eventType: SecurityEventType,
     severity: SecuritySeverity,
-    details: SecurityEventDetails,
+    details: SecurityEventDetails
   ) {
     const headersList = await headers();
     const ip =
@@ -39,15 +38,6 @@ export class AuthService {
       timestamp: new Date().toISOString(),
     };
 
-    ValidationService.validateSecurityEvent({
-      event_type: eventType,
-      severity,
-      user_id: userId,
-      ip_address: ip || null,
-      event_details: eventDetails,
-      created_at: new Date(),
-    });
-
     await prisma.security_events.create({
       data: {
         event_type: eventType,
@@ -55,7 +45,7 @@ export class AuthService {
         user_id: userId,
         ip_address: ip || null,
         event_details: eventDetails,
-        created_at: new Date(),
+        event_time: new Date(),
       },
     });
   }
@@ -63,7 +53,7 @@ export class AuthService {
   private createSecurityEventDetails(
     email: string,
     success: boolean,
-    reason: string | null,
+    reason: string | null
   ): SecurityEventDetails {
     return {
       email,
@@ -76,12 +66,12 @@ export class AuthService {
   async authenticate(email: string, password: string) {
     const user = await prisma.users.findUnique({ where: { email } });
 
-    if (!user) {
+    if (!user || !user.salt || !user.password_hash) {
       await this.logSecurityEvent(
         0,
         "LOGIN_ATTEMPT",
         "WARNING",
-        this.createSecurityEventDetails(email, false, "USER_NOT_FOUND"),
+        this.createSecurityEventDetails(email, false, "USER_NOT_FOUND")
       );
       return null;
     }
@@ -92,7 +82,7 @@ export class AuthService {
         user.user_id,
         "LOGIN_ATTEMPT",
         "WARNING",
-        this.createSecurityEventDetails(email, false, "INVALID_PASSWORD"),
+        this.createSecurityEventDetails(email, false, "INVALID_PASSWORD")
       );
       return null;
     }
@@ -126,7 +116,7 @@ export class AuthService {
       user.user_id,
       "LOGIN_SUCCESS",
       "INFO",
-      this.createSecurityEventDetails(email, true, null),
+      this.createSecurityEventDetails(email, true, null)
     );
 
     return { user, token };

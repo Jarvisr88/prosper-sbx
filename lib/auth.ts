@@ -1,8 +1,8 @@
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
-import { Permission } from "@/types/auth/permissions";
 import GoogleProvider from "next-auth/providers/google";
+import { createHash } from "crypto";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -22,8 +22,7 @@ export const authOptions: NextAuthOptions = {
         session.user = {
           ...session.user,
           id: token.sub,
-          permissions: [] as Permission[],
-          role: session.user.role || "user",
+          role: token.role as string,
         };
       }
       return session;
@@ -31,7 +30,6 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
-        token.permissions = user.permissions || [];
       }
       return token;
     },
@@ -41,3 +39,15 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/error",
   },
 };
+
+export function hash(password: string) {
+  const salt = createHash("sha256")
+    .update(Math.random().toString())
+    .digest("hex");
+
+  const password_hash = createHash("sha256")
+    .update(password + salt)
+    .digest("hex");
+
+  return { salt, hash: password_hash };
+}

@@ -10,9 +10,7 @@ type ApiResponse<T> = {
 };
 
 // Define proper types based on Prisma schema
-type PrismaUser = Prisma.usersGetPayload<{
-  select: typeof userSelect;
-}>;
+type PrismaUser = Prisma.usersGetPayload<object>;
 
 const userSelect = {
   user_id: true,
@@ -25,6 +23,7 @@ const userSelect = {
   updated_at: true,
   password_hash: true,
   salt: true,
+  image: true,
 } as const;
 
 export class UserController {
@@ -32,7 +31,7 @@ export class UserController {
 
   async getUsers(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<PrismaUser[]>>,
+    res: NextApiResponse<ApiResponse<PrismaUser[]>>
   ) {
     try {
       const users = await prisma.users.findMany({
@@ -50,7 +49,7 @@ export class UserController {
 
   async getUserById(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<PrismaUser>>,
+    res: NextApiResponse<ApiResponse<PrismaUser>>
   ) {
     try {
       const { id } = req.query;
@@ -86,7 +85,7 @@ export class UserController {
 
   async createUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<PrismaUser>>,
+    res: NextApiResponse<ApiResponse<PrismaUser>>
   ) {
     try {
       const { email, username, role = "USER", is_active = true } = req.body;
@@ -137,7 +136,7 @@ export class UserController {
 
   async updateUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<PrismaUser>>,
+    res: NextApiResponse<ApiResponse<PrismaUser>>
   ) {
     try {
       const { id } = req.query;
@@ -190,7 +189,7 @@ export class UserController {
 
   async deleteUser(
     req: NextApiRequest,
-    res: NextApiResponse<ApiResponse<void>>,
+    res: NextApiResponse<ApiResponse<void>>
   ) {
     try {
       const { id } = req.query;
