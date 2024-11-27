@@ -86,20 +86,23 @@ model analytics_dashboard {
   last_updated      DateTime? @db.Timestamp(6)
   access_roles      String[]
   created_at        DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([metrics], map: "idx_metrics", type: Gin)
+  @@index([metrics], map: "idx_metrics_gin", type: Gin)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model api_endpoints {
-  endpoint_id        BigInt                   @id @default(autoincrement())
+  endpoint_id        BigInt         @id @default(autoincrement())
   endpoint_name      String
   endpoint_path      String
   method             String
-  is_active          Boolean?                 @default(true)
+  is_active          Boolean?       @default(true)
   rate_limit         Int?
-  auth_required      Boolean?                 @default(true)
-  response_cache_ttl Unsupported("interval")?
-  created_at         DateTime                 @default(now()) @db.Timestamp(6)
-  updated_at         DateTime                 @default(now()) @db.Timestamp(6)
+  auth_required      Boolean?       @default(true)
+  response_cache_ttl Int?
+  created_at         DateTime       @default(now()) @db.Timestamp(6)
+  updated_at         DateTime       @default(now()) @db.Timestamp(6)
   api_requests       api_requests[]
 }
 
@@ -117,16 +120,16 @@ model api_keys {
 }
 
 model api_requests {
-  request_id        BigInt                   @id @default(autoincrement())
+  request_id        BigInt         @id @default(autoincrement())
   endpoint_id       BigInt?
   api_key_id        BigInt?
-  request_timestamp DateTime                 @default(now()) @db.Timestamp(6)
-  response_time     Unsupported("interval")?
+  request_timestamp DateTime       @default(now()) @db.Timestamp(6)
+  response_time     Int?
   status_code       Int?
   request_details   Json?
   response_details  Json?
-  api_keys          api_keys?                @relation(fields: [api_key_id], references: [key_id], onDelete: NoAction, onUpdate: NoAction)
-  api_endpoints     api_endpoints?           @relation(fields: [endpoint_id], references: [endpoint_id], onDelete: NoAction, onUpdate: NoAction)
+  api_keys          api_keys?      @relation(fields: [api_key_id], references: [key_id], onDelete: NoAction, onUpdate: NoAction)
+  api_endpoints     api_endpoints? @relation(fields: [endpoint_id], references: [endpoint_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model audit_log {
@@ -174,19 +177,19 @@ model backup_catalog {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model backup_configurations {
-  config_id           BigInt                   @id @default(autoincrement())
+  config_id           BigInt           @id @default(autoincrement())
   config_name         String
   backup_type         String
   schedule_expression String?
-  retention_period    Unsupported("interval")?
+  retention_period    Int?
   storage_location    String
-  compression_type    String?                  @default("GZIP")
+  compression_type    String?          @default("GZIP")
   encryption_config   Json?
   pre_backup_script   String?
   post_backup_script  String?
-  is_active           Boolean?                 @default(true)
-  created_at          DateTime                 @default(now()) @db.Timestamp(6)
-  updated_at          DateTime                 @default(now()) @db.Timestamp(6)
+  is_active           Boolean?         @default(true)
+  created_at          DateTime         @default(now()) @db.Timestamp(6)
+  updated_at          DateTime         @default(now()) @db.Timestamp(6)
   backup_history      backup_history[]
 }
 
@@ -564,6 +567,8 @@ model employee_manager_hierarchy {
   workflow_instances_workflow_instances_initiator_idToemployee_manager_hierarchy                         workflow_instances[]               @relation("workflow_instances_initiator_idToemployee_manager_hierarchy")
   workflow_instances_workflow_instances_last_modified_byToemployee_manager_hierarchy                     workflow_instances[]               @relation("workflow_instances_last_modified_byToemployee_manager_hierarchy")
   workflow_step_history                                                                                  workflow_step_history[]
+
+  @@index([manager_id, department_id], map: "idx_employee_hierarchy")
 }
 
 model employee_recognition {
@@ -886,13 +891,13 @@ model maintenance_history {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model maintenance_schedule {
-  schedule_id         BigInt                  @id @default(autoincrement())
+  schedule_id         BigInt                @id @default(autoincrement())
   task_name           String
   task_type           String
-  frequency           Unsupported("interval")
-  last_run            DateTime?               @db.Timestamp(6)
-  next_run            DateTime?               @db.Timestamp(6)
-  is_active           Boolean?                @default(true)
+  frequency           Int
+  last_run            DateTime?             @db.Timestamp(6)
+  next_run            DateTime?             @db.Timestamp(6)
+  is_active           Boolean?              @default(true)
   configuration       Json?
   maintenance_history maintenance_history[]
 }
@@ -1156,13 +1161,13 @@ model performance_alerts {
 }
 
 model performance_baselines {
-  baseline_id        BigInt                  @id @default(autoincrement())
+  baseline_id        BigInt   @id @default(autoincrement())
   metric_name        String
-  baseline_value     Decimal                 @db.Decimal
-  calculation_window Unsupported("interval")
-  last_updated       DateTime                @default(now()) @db.Timestamp(6)
-  confidence_score   Decimal?                @db.Decimal
+  baseline_value     Decimal  @db.Decimal
+  last_updated       DateTime @default(now()) @db.Timestamp(6)
+  confidence_score   Decimal? @db.Decimal
   baseline_data      Json?
+  calculation_window Int?
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1277,6 +1282,12 @@ model performance_scores {
   comments           String?
   last_modified_by   Int?
   last_modified_at   DateTime? @default(now()) @db.Timestamp(6)
+  performance_score  Decimal?  @db.Decimal(5, 2)
+  portfolio_type     String[]  @db.Char
+
+  @@index([employee_id, evaluation_date], map: "idx_performance_metrics")
+  @@index([employee_id, evaluation_date], map: "idx_performance_scores")
+  @@index([employee_id, evaluation_date], map: "idx_performance_scores_employee")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1687,21 +1698,21 @@ model satisfaction_survey_metrics {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model scheduled_jobs {
-  job_id          BigInt                   @id @default(autoincrement())
+  job_id          BigInt           @id @default(autoincrement())
   job_name        String
   job_type        String
   description     String?
   schedule_type   String
   cron_expression String?
-  interval_value  Unsupported("interval")?
+  interval_value  Int?
   target_type     String
   target_id       BigInt
-  parameters      Json?                    @default("{}")
-  is_active       Boolean?                 @default(true)
-  last_run        DateTime?                @db.Timestamp(6)
-  next_run        DateTime?                @db.Timestamp(6)
-  created_at      DateTime                 @default(now()) @db.Timestamp(6)
-  updated_at      DateTime                 @default(now()) @db.Timestamp(6)
+  parameters      Json?            @default("{}")
+  is_active       Boolean?         @default(true)
+  last_run        DateTime?        @db.Timestamp(6)
+  next_run        DateTime?        @db.Timestamp(6)
+  created_at      DateTime         @default(now()) @db.Timestamp(6)
+  updated_at      DateTime         @default(now()) @db.Timestamp(6)
   job_executions  job_executions[]
 }
 
@@ -1734,25 +1745,29 @@ model score_history {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model security_events {
-  event_id      BigInt   @id @default(autoincrement())
-  event_type    String
-  event_time    DateTime @default(now()) @db.Timestamp(6)
-  ip_address    String?  @db.Inet
+  event_id      BigInt              @id @default(autoincrement())
+  event_type    security_event_type
+  event_time    DateTime            @default(now()) @db.Timestamp(6)
+  ip_address    String?             @db.Inet
   user_id       Int?
   event_details Json?
-  severity      String?  @default("NORMAL")
+  severity      security_severity?  @default(INFO)
+  users         users?              @relation(fields: [user_id], references: [user_id], onUpdate: NoAction)
 
+  @@index([event_details], map: "idx_event_details", type: Gin)
+  @@index([event_details], map: "idx_event_details_gin", type: Gin)
+  @@index([event_type, event_time, user_id], map: "idx_security_events_composite")
   @@index([event_type, event_time], map: "idx_security_events_type_time")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model security_monitoring_log {
-  log_id             BigInt                  @id @default(autoincrement())
-  execution_time     DateTime                @db.Timestamp(6)
+  log_id             BigInt   @id @default(autoincrement())
+  execution_time     DateTime @db.Timestamp(6)
   lookback_hours     Int
   alert_threshold    Int
-  execution_duration Unsupported("interval")
   findings           Json
+  execution_duration Int?
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -1841,13 +1856,17 @@ model system_integrations {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model system_metrics_history {
-  metric_id       BigInt   @id @default(autoincrement())
+  metric_id       BigInt   @default(autoincrement())
   metric_name     String
   metric_value    Decimal  @db.Decimal
   metric_type     String
-  collection_time DateTime @default(now()) @db.Timestamp(6)
-  granularity     String
-  dimensions      Json?
+  collection_time DateTime @db.Timestamp(6)
+  dimensions      Json?    @default("{}")
+
+  @@id([metric_id, collection_time], map: "system_metrics_history_partitioned_pkey")
+  @@index([collection_time], map: "idx_metrics_collection_time")
+  @@index([dimensions], map: "idx_metrics_dimensions", type: Gin)
+  @@index([metric_name, collection_time], map: "idx_metrics_name_time")
 }
 
 model system_settings {
@@ -1916,16 +1935,16 @@ model team_structure {
 }
 
 model test_cases {
-  test_id         BigInt                   @id @default(autoincrement())
+  test_id         BigInt            @id @default(autoincrement())
   suite_id        BigInt?
   test_name       String
   test_query      String
   expected_result Json
-  timeout         Unsupported("interval")? @default(dbgenerated("'00:00:30'::interval"))
-  retry_count     Int?                     @default(0)
-  is_active       Boolean?                 @default(true)
+  retry_count     Int?              @default(0)
+  is_active       Boolean?          @default(true)
   tags            String[]
-  test_suites     test_suites?             @relation(fields: [suite_id], references: [suite_id], onDelete: NoAction, onUpdate: NoAction)
+  timeout         Int?
+  test_suites     test_suites?      @relation(fields: [suite_id], references: [suite_id], onDelete: NoAction, onUpdate: NoAction)
   test_executions test_executions[]
 }
 
@@ -1985,25 +2004,24 @@ model user_sessions {
   is_valid   Boolean?  @default(true)
   ip_address String?   @db.Inet
   user_agent String?
-  users      users?    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  users      users?    @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([is_valid, expires_at], map: "idx_user_sessions_valid")
 }
 
-// Single users model with both legacy and NextAuth.js fields
 model users {
-  user_id       Int             @id @default(autoincrement())
-  username      String          @unique @db.VarChar(50)
-  email         String          @unique @db.VarChar(255)
-  password_hash String? // Made optional for OAuth
-  salt          String? // Made optional for OAuth
-  role          String          @default("user") @db.VarChar(20)
-  is_active     Boolean?        @default(true)
-  last_login    DateTime?       @db.Timestamp(6)
-  created_at    DateTime?       @default(now()) @db.Timestamp(6)
-  updated_at    DateTime?       @default(now()) @db.Timestamp(6)
-  image         String? // Added for NextAuth.js
-  user_sessions user_sessions[]
-  accounts      Account[] // Added for NextAuth.js
-  sessions      Session[] // Added for NextAuth.js
+  user_id         Int               @id @default(autoincrement())
+  username        String            @unique @db.VarChar(50)
+  email           String            @unique @db.VarChar(255)
+  password_hash   String
+  salt            String
+  role            String            @default("user") @db.VarChar(20)
+  is_active       Boolean?          @default(true)
+  last_login      DateTime?         @db.Timestamp(6)
+  created_at      DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at      DateTime?         @default(now()) @updatedAt @db.Timestamp(6)
+  security_events security_events[]
+  user_sessions   user_sessions[]
 }
 
 model workflow_definitions {
@@ -2017,6 +2035,8 @@ model workflow_definitions {
   created_at         DateTime?            @default(now()) @db.Timestamp(6)
   workflow_type      String?              @db.VarChar(50)
   workflow_instances workflow_instances[]
+
+  @@index([steps], map: "idx_workflow_steps", type: Gin)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -2056,6 +2076,11 @@ model workflow_instances {
   employee_manager_hierarchy_workflow_instances_last_modified_byToemployee_manager_hierarchy employee_manager_hierarchy? @relation("workflow_instances_last_modified_byToemployee_manager_hierarchy", fields: [last_modified_by], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_definitions                                                                       workflow_definitions?       @relation(fields: [workflow_id], references: [workflow_id], onDelete: NoAction, onUpdate: NoAction)
   workflow_step_history                                                                      workflow_step_history[]
+
+  @@index([workflow_data], map: "idx_workflow_data", type: Gin)
+  @@index([workflow_data], map: "idx_workflow_data_gin", type: Gin)
+  @@index([status, start_date], map: "idx_workflow_instances_status")
+  @@index([status, start_date], map: "idx_workflow_status")
 }
 
 model workflow_step_history {
@@ -2067,10 +2092,10 @@ model workflow_step_history {
   action_taken               String?                     @db.VarChar(50)
   action_date                DateTime?                   @default(now()) @db.Timestamp(6)
   comments                   String?
-  time_spent                 Unsupported("interval")?
+  time_spent                 Int?
   created_at                 DateTime?                   @default(now()) @db.Timestamp(6)
   employee_manager_hierarchy employee_manager_hierarchy? @relation(fields: [assignee_id], references: [employee_id], onDelete: NoAction, onUpdate: NoAction)
-  workflow_instances         workflow_instances?         @relation(fields: [instance_id], references: [instance_id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_instances         workflow_instances?         @relation(fields: [instance_id], references: [instance_id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -2087,6 +2112,32 @@ model workflow_step_logs {
   workflow_executions workflow_executions? @relation(fields: [execution_id], references: [execution_id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+model User {
+  id            String    @id
+  email         String?   @unique
+  name          String?
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  emailVerified DateTime?
+  employeeId    Int?
+  image         String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  userId        Int?
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model system_metrics_history_backup {
+  metric_id       BigInt   @id(map: "system_metrics_history_pkey") @default(autoincrement())
+  metric_name     String
+  metric_value    Decimal  @db.Decimal
+  metric_type     String
+  collection_time DateTime @default(now()) @db.Timestamp(6)
+  granularity     String
+  dimensions      Json?
+}
+
 enum prosper_category {
   PORTFOLIO
   RELATIONSHIP
@@ -2097,41 +2148,35 @@ enum prosper_category {
   RESPONSIBILITY
 }
 
-// Update the Account model to work with our users table
-model Account {
-  id                String  @id @default(cuid())
-  userId            Int // References users.user_id
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              users   @relation(fields: [userId], references: [user_id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@map("auth_accounts")
+enum security_event_type {
+  LOGIN_ATTEMPT
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  RATE_LIMIT_EXCEEDED
+  PERMISSION_DENIED
+  SECURITY_ALERT
+  CONFIGURATION_CHANGE
+  SYSTEM_ERROR
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       Int // References users.user_id
-  expires      DateTime
-  user         users    @relation(fields: [userId], references: [user_id], onDelete: Cascade)
-
-  @@map("auth_sessions")
+enum security_severity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
 }
 
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+enum user_role {
+  ADMIN
+  USER
+  MANAGER
+  AUDITOR
+}
 
-  @@unique([identifier, token])
-  @@map("auth_verification_tokens")
+enum workflow_status {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
 }

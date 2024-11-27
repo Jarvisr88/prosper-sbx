@@ -1,0 +1,39 @@
+{
+    "Function with Parameter Block": {
+        "prefix": "function-param",
+        "body": [
+            "function ${1:FunctionName} {",
+            "    [CmdletBinding()]",
+            "    param (",
+            "        [Parameter(Mandatory)]",
+            "        [${2:string}]\\$${3:ParameterName}",
+            "    )",
+            "",
+            "    ${0:# Function body}",
+            "}"
+        ],
+        "description": "Function with parameter block and CmdletBinding"
+    },
+    "Try-Catch Block": {
+        "prefix": "try-catch",
+        "body": [
+            "try {",
+            "    ${1:# Try block}",
+            "} catch {",
+            "    Write-Error \\$_.Exception.Message",
+            "    ${2:# Error handling}",
+            "} finally {",
+            "    ${0:# Cleanup}",
+            "}"
+        ],
+        "description": "Try-catch block with error handling"
+    },
+    "Parameter Block": {
+        "prefix": "param-block",
+        "body": [
+            "[Parameter(${1:Mandatory})]",
+            "[${2:string}]\\$${3:ParameterName}"
+        ],
+        "description": "Parameter block for functions"
+    }
+} 

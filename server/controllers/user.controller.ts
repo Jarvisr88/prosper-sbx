@@ -10,7 +10,19 @@ type ApiResponse<T> = {
 };
 
 // Define proper types based on Prisma schema
-type PrismaUser = Prisma.usersGetPayload<object>;
+type PrismaUser = {
+  user_id: number;
+  username: string | null;
+  email: string;
+  role: string;
+  is_active: boolean | null;
+  last_login: Date | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  password_hash: string | null;
+  salt: string | null;
+  image: string | null;
+};
 
 const userSelect = {
   user_id: true,

@@ -1,0 +1,17 @@
+{
+  "powershell.codeFormatting.preset": "Stroustrup",
+  "powershell.codeFormatting.alignPropertyValuePairs": true,
+  "powershell.codeFormatting.ignoreOneLineBlock": false,
+  "powershell.codeFormatting.newLineAfterOpenBrace": true,
+  "powershell.codeFormatting.newLineAfterCloseBrace": true,
+  "powershell.codeFormatting.whitespaceBeforeOpenBrace": true,
+  "powershell.codeFormatting.whitespaceBeforeOpenParen": true,
+  "powershell.codeFormatting.whitespaceAroundOperator": true,
+  "powershell.codeFormatting.whitespaceAfterSeparator": true,
+  "[powershell]": {
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "files.encoding": "utf8bom",
+    "files.autoGuessEncoding": true
+  }
+}
